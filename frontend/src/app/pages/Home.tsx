@@ -1,8 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react'; //adicionei useeffect
 import { motion } from 'motion/react';
 import { LogOut, Menu } from 'lucide-react';
 import { DeckCard } from '../components/DeckCard';
-import { decks } from '../data/flashcards';
 import { PhoneMockup } from '../components/PhoneMockup';
 import { Sidebar } from '../components/Sidebar';
 import { useNavigate } from 'react-router';
@@ -11,6 +10,51 @@ export function Home() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const navigate = useNavigate();
   const userName = localStorage.getItem('userName') || 'Estudante';
+  const [decksData, setDecksData] = useState<any[]>([]);              //nova const
+  const [novoDeck, setNovoDeck] = useState("");                      //guardar o texto digitado
+
+function deletarDeck(id: number) {
+  fetch(`http://127.0.0.1:8000/decks/${id}`, {
+    method: "DELETE",
+  }).then(() => {
+    setDecksData((prev) => prev.filter((deck) => deck.id !== id));
+  });
+}
+
+
+  function criarDeck() {
+  console.log("ANTES:", novoDeck); // 👈 aqui
+
+  if (!novoDeck) return;
+
+  fetch("http://127.0.0.1:8000/decks", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      nome: novoDeck,
+      user_id: 1,
+    }),
+  })
+    .then(res => res.json())
+    .then(data => {
+      console.log("RESPOSTA BACK:", data); // 👈 aqui
+
+      setDecksData(prev => [...prev, data]);
+      setNovoDeck("");
+    });
+}
+
+
+  useEffect(() => {                                
+  fetch("http://127.0.0.1:8000/decks")                           //buscar da api
+    .then(res => res.json())
+    .then(data => {
+      console.log("decks da API:", data);
+      setDecksData(data);
+    });
+}, []);
 
   const handleLogout = () => {
     localStorage.removeItem('isAuthenticated');
@@ -51,12 +95,38 @@ export function Home() {
             </p>
           </div>
 
+        <div className="px-6 mb-4">                 
+          <input                                      //adiciona botao e input
+            value={novoDeck}
+            onChange={(e) => setNovoDeck(e.target.value)}
+            placeholder="Nome do deck"
+            className="w-full p-2 rounded"
+          />
+
+          <button
+            onClick={criarDeck}
+            className="mt-2 w-full bg-white text-black p-2 rounded"
+          >
+            Criar Deck
+          </button>
+        </div>
+
+
           {/* Deck Grid */}
           <div className="flex-1 px-6 pb-6 overflow-y-auto">
             <div className="grid grid-cols-2 gap-4">
-              {decks.map((deck, index) => (
-                <DeckCard key={deck.id} deck={deck} index={index} />
-              ))}
+             {decksData.map((deck) => (
+  <div key={deck.id}>
+    <DeckCard deck={deck} />
+
+    <button
+      onClick={() => deletarDeck(deck.id)}
+      className="mt-2 w-full bg-red-600 text-white p-2 rounded"
+    >
+      Deletar Deck
+    </button>
+  </div>
+))}
             </div>
           </div>
         </div>
