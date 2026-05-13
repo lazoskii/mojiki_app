@@ -185,3 +185,6 @@ def deletar_deck(id: int):
     conn.close()
 
     return {"msg": "Deck deletado"}
+
+
+
