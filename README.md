@@ -17,10 +17,6 @@ Organizar as atividades do projeto em um cronograma visual, permitindo:
 - acompanhar o andamento das atividades;
 - preservar as tasks adicionadas no dia atual sem permitir sua edição.
 
-## User story principal
-
-> **Como** professor, **quero** adicionar novas tasks ao cronograma, **para** acompanhar e organizar as atividades do projeto sem alterar o histórico das tasks já registradas hoje.
-
 ## Quebrando em tasks
 
 ### Organização do cronograma
