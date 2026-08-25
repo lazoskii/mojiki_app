@@ -1,0 +1,24 @@
+# Regras gerais do repositorio.
+# Cada subprojeto tem seu proprio .gitignore:
+#   backend/.gitignore          -> Python / FastAPI
+#   flutter_frontend/.gitignore -> Flutter / Dart
+#   frontend/.gitignore         -> Next.js / Node
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores / IDEs
+.idea/
+*.iml
+*.swp
+*~
+
+# Logs
+*.log
+
+# Variaveis de ambiente
+.env
+.env.*
+!.env.example
