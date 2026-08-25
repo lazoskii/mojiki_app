@@ -24,11 +24,14 @@ class _SplashScreenState extends State<SplashScreen> {
     // shared_preferences = localStorage do Flutter
     final prefs = await SharedPreferences.getInstance();
     final isAuthenticated = prefs.getBool('isAuthenticated') ?? false;
+    final hasSeenOnboarding = prefs.getBool('hasSeenOnboarding') ?? false;
 
     if (!mounted) return; // garante que a tela ainda está na pilha
 
     if (isAuthenticated) {
       context.go('/home');
+    } else if (!hasSeenOnboarding) {
+      context.go('/onboarding');
     } else {
       context.go('/welcome');
     }

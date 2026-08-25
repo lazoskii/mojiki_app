@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../models/deck.dart';
 import '../services/api_service.dart';
+import '../services/progress_service.dart';
+import '../widgets/app_drawer.dart';
 
 class StudyScreen extends StatefulWidget {
   final int deckId;
@@ -61,6 +63,7 @@ class _StudyScreenState extends State<StudyScreen>
       _flipController.reverse();
     } else {
       _flipController.forward();
+      ProgressService.registrarCardEstudado(); // conta como 1 revisão
     }
     setState(() => _isFlipped = !_isFlipped);
   }
@@ -132,6 +135,7 @@ class _StudyScreenState extends State<StudyScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: const AppDrawer(),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -155,6 +159,12 @@ class _StudyScreenState extends State<StudyScreen>
                             icon: const Icon(Icons.arrow_back,
                                 color: Colors.white),
                             onPressed: () => context.go('/home'),
+                          ),
+                          Builder(
+                            builder: (context) => IconButton(
+                              icon: const Icon(Icons.menu, color: Colors.white70),
+                              onPressed: () => Scaffold.of(context).openDrawer(),
+                            ),
                           ),
                           Expanded(
                             child: Text(

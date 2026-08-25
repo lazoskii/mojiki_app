@@ -1,4 +1,4 @@
-package com.japaneseflash.flashcard_app
+package com.mojiki.app
 
 import io.flutter.embedding.android.FlutterActivity
 

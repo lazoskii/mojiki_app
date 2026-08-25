@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.japaneseflash" "\0"
-            VALUE "FileDescription", "flashcard_app" "\0"
+            VALUE "CompanyName", "com.mojiki" "\0"
+            VALUE "FileDescription", "mojiki" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "flashcard_app" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.japaneseflash. All rights reserved." "\0"
-            VALUE "OriginalFilename", "flashcard_app.exe" "\0"
-            VALUE "ProductName", "flashcard_app" "\0"
+            VALUE "InternalName", "mojiki" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 com.mojiki. All rights reserved." "\0"
+            VALUE "OriginalFilename", "mojiki.exe" "\0"
+            VALUE "ProductName", "mojiki" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
