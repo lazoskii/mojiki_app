@@ -6,11 +6,6 @@ O Mojiki é um aplicativo de flashcards voltado para estudantes. A proposta é p
 
 O projeto já possui a estrutura principal do aplicativo, mas ainda precisa evoluir em algumas partes importantes da experiência. O foco deste ciclo é organizar melhor o cronograma e definir com clareza quais tarefas podem ser adicionadas e quais informações não podem mais ser alteradas depois do registro.
 
-## Problema identificado
-
-Durante o planejamento, surgiu a necessidade de permitir que o professor acrescente novas tasks ao cronograma conforme o projeto avança. Ao mesmo tempo, as tasks adicionadas no dia atual não devem ser editadas depois de criadas.
-
-Essa regra ajuda a manter o histórico do planejamento e evita que uma tarefa seja alterada depois de ter sido registrada. Caso seja necessário acrescentar uma nova informação, deve ser criada uma nova task, sem modificar a anterior.
 
 ## Objetivo
 
