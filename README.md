@@ -2,72 +2,80 @@
 
 ## Diagnóstico do projeto
 
-O Mojiki é um aplicativo de flashcards voltado para estudantes. A proposta é permitir que o usuário organize seus assuntos em decks, crie cards de pergunta e resposta e acompanhe seu estudo de maneira simples.
+O Mojiki é um aplicativo de flashcards voltado para estudantes, com backend em **FastAPI + SQLite** e frontend em **Flutter** (7 telas). O app já tem 9 endpoints ativos e CRUD real de decks e flashcards, mas nunca teve um requisito escrito nem um caso de teste documentado.
 
-O projeto já possui a estrutura principal do aplicativo, mas ainda precisa evoluir em algumas partes importantes da experiência. O foco deste ciclo é organizar melhor o cronograma e definir com clareza quais tarefas podem ser adicionadas e quais informações não podem mais ser alteradas depois do registro.
+Este diagnóstico parte disso: para cada problema encontrado, definimos o requisito que falta, o teste que expõe a falha e a correção necessária. Foram selecionadas 4 frentes prioritárias, e o restante dos pontos de melhoria fica registrado como backlog.
 
+## O que já funciona
 
-## Objetivo
+- **CRUD real de decks e flashcards**, persistido em SQLite — não é mais dado mockado.
+- **Navegação completa** entre as 7 telas via go_router, incluindo onboarding só na primeira vez.
+- **Progresso local** — cards estudados e sequência de dias já são acompanhados de verdade.
+- **Menu lateral** unificando o acesso a Decks, Sessão de Estudo e Progresso.
 
-Organizar as atividades do projeto em um cronograma visual, permitindo:
+## Pontos de melhoria
 
-- visualizar as tasks planejadas por semana;
-- adicionar novas tasks quando necessário;
-- informar o assunto, a descrição e o tamanho de cada task;
-- acompanhar o andamento das atividades;
-- preservar as tasks adicionadas no dia atual sem permitir sua edição.
+| Frente | Item | Descrição |
+|---|---|---|
+| Robustez | Tela trava no "carregando" | Se a API cair ou a rede falhar, a tela fica presa no spinner — nenhuma chamada tem tratamento de erro. |
+| Robustez | Exclusão sem confirmação | Apagar um deck ou flashcard é instantâneo, sem diálogo de confirmação nem forma de desfazer. |
+| CRUD incompleto | Editar flashcard não existe | O backend já tem `PUT /flashcards/{id}` pronto, mas o app nunca chama — dá pra criar e excluir, não corrigir. |
+| CRUD incompleto | Deck não tem edição | Não existe endpoint de renomear deck — só criar e excluir. |
+| Funcionalidade morta | Modos de estudo são só visual | Os cards de Sessão Rápida / Diária / Intensiva não fazem nada ao tocar — puramente decorativos. |
+| Funcionalidade morta | StudySession nunca é usada | O model com `acertos`/`erros` existe em `models.py`, mas nenhuma rota grava ou lê esses dados. |
+| Outras menores | Sem busca | Não há como filtrar decks ou cards por nome quando a lista cresce. |
+| Outras menores | user_id sempre fixo | Todo deck é criado com `user_id = 1` — não existem usuários reais ainda. |
 
 ## Quebrando em tasks
 
-### Organização do cronograma
+A numeração dos blocos segue a ordem de prioridade da apresentação; os blocos 4 a 7 cobrem o restante dos pontos de melhoria.
 
-- [ ] Levantar os requisitos do cronograma — **M**
-- [ ] Definir as semanas e os períodos do projeto — **P**
-- [ ] Organizar as atividades por ordem de execução — **P**
-- [ ] Definir o tamanho de cada task — **P**
+### Bloco 1 — Autoavaliação real (Acertei / Errei)
 
-### Adição de novas tasks
+- [ ] Adicionar endpoint para registrar a resposta (acerto/erro) de um card estudado — **M**
+- [ ] Persistir o resultado usando o model `StudySession` já existente — **M**
+- [ ] Adicionar botões "Acertei" / "Errei" na tela de estudo (Flutter) — **M**
+- [ ] Chamar a API ao tocar em Acertei/Errei — **P**
+- [ ] Testar o fluxo completo: marcar resposta → salvar → conferir no banco — **P**
 
-- [ ] Criar a opção de adicionar uma task — **P**
-- [ ] Informar o título e a descrição da task — **P**
-- [ ] Escolher a semana ou o período da atividade — **P**
-- [ ] Informar o responsável pela task — **P**
-- [ ] Mostrar a nova task no cronograma — **M**
-- [ ] Permitir adicionar tasks mesmo depois do cronograma iniciado — **P**
+### Bloco 2 — Documento de requisitos
 
-### Regra de edição
+- [ ] Levantar as regras que o app deveria seguir (ex.: não criar deck sem nome) — **M**
+- [ ] Escrever os 8 requisitos em formato claro — **P**
+- [ ] Revisar os requisitos com o grupo/professor — **P**
 
-- [ ] Identificar a data em que a task foi criada — **M**
-- [ ] Bloquear a edição das tasks adicionadas no dia atual — **P**
-- [ ] Esconder ou desabilitar a opção de editar essas tasks — **P**
-- [ ] Permitir apenas a visualização das tasks bloqueadas — **P**
-- [ ] Criar uma nova task quando for necessário registrar uma alteração — **P**
+### Bloco 3 — Casos de teste ligados aos requisitos
 
-### Validação e testes
+- [ ] Criar um caso de teste por requisito (passo a passo + resultado esperado) — **M**
+- [ ] Executar os testes manualmente no app atual — **M**
+- [ ] Registrar os defeitos encontrados (ex.: deck com nome vazio aceito, exclusão sem confirmação) — **P**
+- [ ] Priorizar quais defeitos corrigir primeiro — **P**
 
-- [ ] Verificar se uma task pode ser adicionada corretamente — **P**
-- [ ] Verificar se a task aparece na semana escolhida — **P**
-- [ ] Confirmar que uma task criada hoje não pode ser editada — **P**
-- [ ] Confirmar que as tasks antigas continuam disponíveis para consulta — **P**
-- [ ] Testar o cronograma com várias tasks — **M**
-- [ ] Registrar os problemas encontrados — **P**
+### Bloco 4 — Robustez (tratamento de erro e confirmação)
 
-## Regra das tasks
+- [ ] Adicionar tratamento de erro nas chamadas de API, em vez de travar no "carregando" — **M**
+- [ ] Mostrar mensagem de erro/retry quando a API falhar ou a rede cair — **M**
+- [ ] Adicionar diálogo de confirmação antes de excluir um deck — **P**
+- [ ] Adicionar diálogo de confirmação antes de excluir um flashcard — **P**
 
-O professor pode adicionar novas tasks ao cronograma a qualquer momento. Porém, depois que uma task é adicionada no dia atual, ela não pode ser editada.
+### Bloco 5 — CRUD incompleto (edição)
 
-A task deve permanecer disponível para visualização, com suas informações originais. Para registrar uma mudança de atividade, deve ser adicionada uma nova task, mantendo o histórico da anterior.
+- [ ] Ligar a tela de edição de flashcard ao endpoint `PUT /flashcards/{id}` já existente — **M**
+- [ ] Criar endpoint de edição (renomear) de deck no backend — **M**
+- [ ] Adicionar opção de editar deck na interface — **P**
+- [ ] Testar a edição de flashcard e de deck — **P**
 
-## Critérios de aceite
+### Bloco 6 — Funcionalidade morta (modos de estudo)
 
-- Uma nova task pode ser adicionada informando, no mínimo, título, descrição e semana.
-- A task aparece no cronograma depois de ser registrada.
-- A data de criação fica associada à task.
-- Tasks adicionadas hoje não apresentam opção de edição.
-- Tasks bloqueadas continuam disponíveis para visualização.
-- O usuário consegue diferenciar uma task nova de uma task já existente.
-- Uma nova task pode ser adicionada sem alterar as demais atividades.
-- O cronograma permanece organizado por semana e por ordem de criação.
+- [ ] Definir o comportamento esperado de cada modo (Rápida / Diária / Intensiva) — **P**
+- [ ] Implementar a ação dos cards de modo de estudo — **G**
+- [ ] Ligar os modos de estudo ao registro de progresso (`StudySession`) — **M**
+
+### Bloco 7 — Outras melhorias menores
+
+- [ ] Adicionar campo de busca para decks — **M**
+- [ ] Adicionar busca de cards dentro de um deck — **M**
+- [ ] Registrar o `user_id` fixo como pendência de backlog, para quando existir autenticação real — **P**
 
 ## Tamanho das tasks
 
@@ -75,44 +83,11 @@ A task deve permanecer disponível para visualização, com suas informações o
 - **M — Média:** pode levar aproximadamente um dia.
 - **G — Grande:** pode levar de dois a três dias e talvez precise ser dividida.
 
-As estimativas servem para ajudar na organização do cronograma e podem ser revisadas durante o planejamento, sem modificar uma task que já foi registrada no dia atual.
-
-## Cronograma do projeto
-
-| Semana | Foco | Entrega esperada |
-|---|---|---|
-| 1 | Levantamento | Requisitos principais do projeto |
-| 2 | Planejamento | Organização das semanas e das tasks |
-| 3 | Cadastro | Opção de adicionar novas tasks |
-| 4 | Visualização | Tasks exibidas no cronograma |
-| 5 | Regra de bloqueio | Tasks criadas hoje sem edição |
-| 6 | Validação | Testes de adição e visualização |
-| 7 | Ajustes | Correção dos problemas encontrados |
-| 8 | Organização | Melhorias no agrupamento por semana |
-| 9 | Acompanhamento | Revisão do andamento das atividades |
-| 10 | Testes gerais | Verificação do fluxo completo |
-| 11 | Correções finais | Ajustes apontados nos testes |
-| 12 | Documentação | Atualização do diagnóstico e das tasks |
-| 13 | Entrega | Revisão final do projeto |
-
-## Fluxo esperado
-
-1. O professor acessa o cronograma.
-2. O professor escolhe a opção de adicionar uma task.
-3. O professor informa os dados da atividade.
-4. A task é registrada com a data atual.
-5. A task aparece na semana escolhida.
-6. A task criada hoje fica disponível somente para visualização.
-7. Se houver uma nova atividade ou alteração necessária, o professor adiciona outra task.
+As estimativas servem para ajudar na priorização e podem ser revisadas durante o planejamento.
 
 ## Fora do escopo neste momento
 
-- Editar tasks criadas no dia atual.
-- Apagar ou substituir o histórico do cronograma.
-- Criar usuários reais e permissões diferentes para cada perfil.
-- Automatizar a distribuição das tasks entre as semanas.
-- Criar notificações ou lembretes automáticos.
-
-## Entrega esperada
-
-Ao final deste ciclo, o Mojiki deverá apresentar um cronograma organizado e permitir que o professor acrescente novas tasks. As tasks criadas no dia atual deverão permanecer sem opção de edição, garantindo um registro claro do planejamento feito em cada dia.
+- Autenticação real de usuários (login, múltiplas contas).
+- Notificações ou lembretes automáticos.
+- Sincronização entre dispositivos.
+- Testes automatizados (por enquanto os testes são executados manualmente, a partir dos casos de teste do Bloco 3).
