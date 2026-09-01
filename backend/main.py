@@ -1,8 +1,9 @@
 #fastapi cria o servidor, "app" é a API
 from fastapi import FastAPI
-from models import Flashcard, Deck
+from models import Flashcard, Deck, IniciarSessao, RegistrarResposta
 from fastapi.middleware.cors import CORSMiddleware
 from database import create_tables, get_connection
+from datetime import datetime
 
 app = FastAPI()
 
@@ -185,6 +186,125 @@ def deletar_deck(id: int):
     conn.close()
 
     return {"msg": "Deck deletado"}
+
+
+
+# study sessions para autoavaliacao
+
+
+#rota: iniciar uma sessao de estudo (comeca com acertos=0 e erros=0)
+@app.post("/study-sessions")
+def iniciar_sessao(sessao: IniciarSessao):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    agora = datetime.utcnow().isoformat()
+
+    cursor.execute(
+        "INSERT INTO study_sessions (user_id, deck_id, acertos, erros, iniciado_em, finalizado_em) VALUES (?, ?, 0, 0, ?, NULL)",
+        (sessao.user_id, sessao.deck_id, agora)
+    )
+
+    conn.commit()
+    novo_id = cursor.lastrowid
+    conn.close()
+
+    return {
+        "id": novo_id,
+        "user_id": sessao.user_id,
+        "deck_id": sessao.deck_id,
+        "acertos": 0,
+        "erros": 0,
+        "iniciado_em": agora,
+        "finalizado_em": None
+    }
+
+
+#rota: GET para listar todas as sessoes de estudo
+@app.get("/study-sessions")
+def listar_sessoes():
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM study_sessions")
+    sessoes = cursor.fetchall()
+
+    conn.close()
+
+    return [dict(sessao) for sessao in sessoes]
+
+
+#rota: GET para buscar uma sessao de estudo pelo id
+
+@app.get("/study-sessions/{id}")
+def buscar_sessao(id: int):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM study_sessions WHERE id = ?", (id,))
+    sessao = cursor.fetchone()
+
+    conn.close()
+
+    if not sessao:
+        return {"erro": "Sessão de estudo não encontrada"}
+
+    return dict(sessao)
+
+
+#rota: registrar a resposta (acertei/errei) de um card estudado dentro de uma sessao
+@app.post("/study-sessions/{id}/responder")
+def registrar_resposta(id: int, resposta: RegistrarResposta):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM study_sessions WHERE id = ?", (id,))
+    sessao = cursor.fetchone()
+
+    if not sessao:
+        conn.close()
+        return {"erro": "Sessão de estudo não encontrada"}
+
+    if sessao["finalizado_em"]:
+        conn.close()
+        return {"erro": "Sessão de estudo já foi finalizada"}
+
+    if resposta.acerto:
+        cursor.execute("UPDATE study_sessions SET acertos = acertos + 1 WHERE id = ?", (id,))
+    else:
+        cursor.execute("UPDATE study_sessions SET erros = erros + 1 WHERE id = ?", (id,))
+
+    conn.commit()
+
+    cursor.execute("SELECT * FROM study_sessions WHERE id = ?", (id,))
+    sessao_atualizada = cursor.fetchone()
+
+    conn.close()
+
+    return dict(sessao_atualizada)
+
+
+#rota: finalizar uma sessao de estudo
+@app.put("/study-sessions/{id}/finalizar")
+def finalizar_sessao(id: int):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM study_sessions WHERE id = ?", (id,))
+    sessao = cursor.fetchone()
+
+    if not sessao:
+        conn.close()
+        return {"erro": "Sessão de estudo não encontrada"}
+
+    agora = datetime.utcnow().isoformat()
+
+    cursor.execute("UPDATE study_sessions SET finalizado_em = ? WHERE id = ?", (agora, id))
+
+    conn.commit()
+    conn.close()
+
+    return {"msg": "Sessão de estudo finalizada", "finalizado_em": agora}
 
 
 

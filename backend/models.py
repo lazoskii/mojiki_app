@@ -28,7 +28,19 @@ class StudySession(BaseModel):
     iniciado_em: datetime = Field(default_factory=datetime.utcnow)
     finalizado_em: Optional[datetime] = None
 
+
+#mudanças semana 1
+
 #DADOS CRIADOS PELO USUARIO NAO DEVEM >EXIGIR< ID
+
+#usado so pra iniciar a sessao (acertos/erros comecam em 0 no back)
+class IniciarSessao(BaseModel):
+    user_id: int
+    deck_id: int
+
+#usuario marca se acertou ou errou o card 
+class RegistrarResposta(BaseModel):
+    acerto: bool
 
     
 

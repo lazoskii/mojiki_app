@@ -27,5 +27,21 @@ def create_tables():
     )
     """)
 
+
+    #mudancas semana 1
+
+    #guarda o resultado da autoavaliacao (acertos/erros) de uma sessao de estudo
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS study_sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        deck_id INTEGER,
+        acertos INTEGER DEFAULT 0,
+        erros INTEGER DEFAULT 0,
+        iniciado_em TEXT,
+        finalizado_em TEXT
+    )
+    """)
+
     conn.commit()
     conn.close()
