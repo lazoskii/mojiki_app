@@ -2,13 +2,16 @@
 from fastapi import FastAPI
 from models import Flashcard, Deck, IniciarSessao, RegistrarResposta
 from fastapi.middleware.cors import CORSMiddleware
-from database import create_tables, get_connection
+from database import create_tables, get_connection, seed_dados_teste
 from datetime import datetime
 
 app = FastAPI()
 
 #cria as tabelas automaticamente no banco
 create_tables()
+
+#garante que o deck de teste fixo existe (roda em qualquer maquina)
+seed_dados_teste()
 
 app.add_middleware(           #adicionei isso pra nao dar erro no cors q tava
     CORSMiddleware,
