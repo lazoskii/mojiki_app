@@ -67,4 +67,36 @@ class ApiService {
   static Future<void> deletarFlashcard(int id) async {
     await http.delete(Uri.parse('$_baseUrl/flashcards/$id'));
   }
+
+  // ========================
+  // STUDY SESSIONS (autoavaliação)
+  // ========================
+
+  static Future<Map<String, dynamic>> iniciarSessao({
+    required int userId,
+    required int deckId,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$_baseUrl/study-sessions'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'user_id': userId, 'deck_id': deckId}),
+    );
+    return jsonDecode(res.body);
+  }
+
+  static Future<Map<String, dynamic>> registrarResposta({
+    required int sessaoId,
+    required bool acerto,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$_baseUrl/study-sessions/$sessaoId/responder'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'acerto': acerto}),
+    );
+    return jsonDecode(res.body);
+  }
+
+  static Future<void> finalizarSessao(int sessaoId) async {
+    await http.put(Uri.parse('$_baseUrl/study-sessions/$sessaoId/finalizar'));
+  }
 }

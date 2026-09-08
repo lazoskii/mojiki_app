@@ -21,6 +21,12 @@ class _StudyScreenState extends State<StudyScreen>
   bool _isFlipped = false;
   bool _loading = true;
 
+  // autoavaliação (Acertei / Errei)
+  int? _sessaoId;
+  int _acertos = 0;
+  int _erros = 0;
+  bool _respondendo = false; // evita duplo toque enquanto a API responde
+
   // AnimationController = controla animações (equivale ao framer-motion)
   late AnimationController _flipController;
   late Animation<double> _flipAnimation;
@@ -56,6 +62,70 @@ class _StudyScreenState extends State<StudyScreen>
       _deck = deck;
       _loading = false;
     });
+    await _iniciarSessao();
+  }
+
+  Future<void> _iniciarSessao() async {
+    try {
+      final sessao = await ApiService.iniciarSessao(
+        userId: 1,
+        deckId: widget.deckId,
+      );
+      if (!mounted) return;
+      setState(() => _sessaoId = sessao['id']);
+    } catch (e) {
+      debugPrint('Falha ao iniciar sessão de estudo: $e');
+    }
+  }
+
+  // Registra a autoavaliação (Acertei/Errei) do card atual na sessão em
+  // andamento e avança para o próximo card (ou finaliza a sessão).
+  Future<void> _responder(bool acerto) async {
+    if (_sessaoId == null || _respondendo) return;
+
+    setState(() => _respondendo = true);
+    try {
+      await ApiService.registrarResposta(
+        sessaoId: _sessaoId!,
+        acerto: acerto,
+      );
+      if (!mounted) return;
+      setState(() {
+        if (acerto) {
+          _acertos++;
+        } else {
+          _erros++;
+        }
+      });
+    } catch (e) {
+      debugPrint('Falha ao registrar resposta: $e');
+    }
+
+    if (!mounted) return;
+    setState(() => _respondendo = false);
+
+    final ultimoCard = _currentIndex >= _deck!.cards.length - 1;
+    if (ultimoCard) {
+      await _finalizarSessao();
+    } else {
+      _proximo();
+    }
+  }
+
+  Future<void> _finalizarSessao() async {
+    if (_sessaoId != null) {
+      try {
+        await ApiService.finalizarSessao(_sessaoId!);
+      } catch (e) {
+        debugPrint('Falha ao finalizar sessão: $e');
+      }
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Sessão concluída! Acertos: $_acertos · Erros: $_erros'),
+      ),
+    );
   }
 
   void _virarCard() {
@@ -90,8 +160,12 @@ class _StudyScreenState extends State<StudyScreen>
     setState(() {
       _currentIndex = 0;
       _isFlipped = false;
+      _acertos = 0;
+      _erros = 0;
+      _sessaoId = null;
     });
     _flipController.reset();
+    _iniciarSessao(); // nova sessão de estudo do zero
   }
 
   Future<void> _criarFlashcard() async {
@@ -197,10 +271,31 @@ class _StudyScreenState extends State<StudyScreen>
                                 const Text('Progresso',
                                     style: TextStyle(
                                         color: Colors.white70, fontSize: 12)),
-                                Text(
-                                  '${_currentIndex + 1} / ${_deck!.cards.length}',
-                                  style: const TextStyle(
-                                      color: Colors.white70, fontSize: 12),
+                                Row(
+                                  children: [
+                                    Icon(Icons.check_circle,
+                                        color: const Color(0xFF16A34A),
+                                        size: 14),
+                                    const SizedBox(width: 2),
+                                    Text('$_acertos',
+                                        style: const TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 12)),
+                                    const SizedBox(width: 10),
+                                    const Icon(Icons.cancel,
+                                        color: Colors.red, size: 14),
+                                    const SizedBox(width: 2),
+                                    Text('$_erros',
+                                        style: const TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 12)),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      '${_currentIndex + 1} / ${_deck!.cards.length}',
+                                      style: const TextStyle(
+                                          color: Colors.white70, fontSize: 12),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -317,9 +412,64 @@ class _StudyScreenState extends State<StudyScreen>
                                     ),
                                   ),
                                   const SizedBox(height: 8),
-                                  const Text('Toque para virar',
-                                      style: TextStyle(
-                                          color: Colors.white54, fontSize: 12)),
+                                  if (!_isFlipped)
+                                    const Text('Toque para virar',
+                                        style: TextStyle(
+                                            color: Colors.white54,
+                                            fontSize: 12))
+                                  else
+                                    Padding(
+                                      padding:
+                                          const EdgeInsets.symmetric(horizontal: 16),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: OutlinedButton.icon(
+                                              onPressed: _respondendo
+                                                  ? null
+                                                  : () => _responder(false),
+                                              icon: const Icon(Icons.close,
+                                                  color: Colors.red),
+                                              label: const Text('Errei',
+                                                  style: TextStyle(
+                                                      color: Colors.red)),
+                                              style: OutlinedButton.styleFrom(
+                                                padding: const EdgeInsets
+                                                    .symmetric(vertical: 12),
+                                                side: const BorderSide(
+                                                    color: Colors.red),
+                                                shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            12)),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: ElevatedButton.icon(
+                                              onPressed: _respondendo
+                                                  ? null
+                                                  : () => _responder(true),
+                                              icon: const Icon(Icons.check,
+                                                  color: Colors.white),
+                                              label: const Text('Acertei'),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor:
+                                                    const Color(0xFF16A34A),
+                                                foregroundColor: Colors.white,
+                                                padding: const EdgeInsets
+                                                    .symmetric(vertical: 12),
+                                                shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            12)),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   const SizedBox(height: 12),
                                   TextButton.icon(
                                     onPressed: () => _deletarFlashcard(
