@@ -5,6 +5,7 @@ import '../models/deck.dart';
 import '../services/api_service.dart';
 import '../services/progress_service.dart';
 import '../widgets/app_drawer.dart';
+import 'session_result_screen.dart';
 
 class StudyScreen extends StatefulWidget {
   final int deckId;
@@ -121,11 +122,27 @@ class _StudyScreenState extends State<StudyScreen>
       }
     }
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Sessão concluída! Acertos: $_acertos · Erros: $_erros'),
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SessionResultScreen(
+          deckNome: _deck?.nome ?? '',
+          acertos: _acertos,
+          erros: _erros,
+          onEstudarNovamente: _voltarDoResultadoEEstudarNovamente,
+          onVoltarDecks: _voltarDoResultadoParaDecks,
+        ),
       ),
     );
+  }
+
+  void _voltarDoResultadoEEstudarNovamente() {
+    Navigator.of(context).pop(); // fecha a tela de resultado
+    _resetar();
+  }
+
+  void _voltarDoResultadoParaDecks() {
+    Navigator.of(context).pop(); // fecha a tela de resultado
+    context.go('/home');
   }
 
   void _virarCard() {
@@ -352,7 +369,14 @@ class _StudyScreenState extends State<StudyScreen>
                                   style: TextStyle(
                                       color: Colors.white60, fontSize: 16)))
                           : Center(
-                              child: Column(
+                              // SingleChildScrollView: em telas/alturas
+                              // menores (ex: teclado aberto) o card + botões
+                              // + "Deletar card" podem não caber na área
+                              // disponível. Sem isso, essa Column dava
+                              // overflow de RenderFlex (bug encontrado ao
+                              // rodar os testes de widget).
+                              child: SingleChildScrollView(
+                                child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   // Card com animação de flip
@@ -480,6 +504,7 @@ class _StudyScreenState extends State<StudyScreen>
                                         style: TextStyle(color: Colors.red)),
                                   ),
                                 ],
+                                ),
                               ),
                             ),
                     ),

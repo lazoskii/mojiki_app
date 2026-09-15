@@ -15,23 +15,30 @@ String get _baseUrl {
 }
 
 class ApiService {
+  // Cliente HTTP injetável: em produção usa um http.Client() padrão de
+  // verdade; nos testes de widget dá pra trocar por um MockClient
+  // (package:http/testing.dart) pra simular respostas da API sem precisar
+  // de requisições de rede reais (que não funcionam dentro do ambiente de
+  // tempo "fake" do testWidgets).
+  static http.Client client = http.Client();
+
   // ========================
   // DECKS
   // ========================
 
   static Future<List<Deck>> listarDecks() async {
-    final res = await http.get(Uri.parse('$_baseUrl/decks'));
+    final res = await client.get(Uri.parse('$_baseUrl/decks'));
     final List data = jsonDecode(res.body);
     return data.map((d) => Deck.fromJson(d)).toList();
   }
 
   static Future<Deck> buscarDeck(int id) async {
-    final res = await http.get(Uri.parse('$_baseUrl/decks/$id'));
+    final res = await client.get(Uri.parse('$_baseUrl/decks/$id'));
     return Deck.fromJson(jsonDecode(res.body));
   }
 
   static Future<Deck> criarDeck(String nome) async {
-    final res = await http.post(
+    final res = await client.post(
       Uri.parse('$_baseUrl/decks'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'nome': nome, 'user_id': 1}),
@@ -40,7 +47,7 @@ class ApiService {
   }
 
   static Future<void> deletarDeck(int id) async {
-    await http.delete(Uri.parse('$_baseUrl/decks/$id'));
+    await client.delete(Uri.parse('$_baseUrl/decks/$id'));
   }
 
   // ========================
@@ -52,7 +59,7 @@ class ApiService {
     required String resposta,
     required int deckId,
   }) async {
-    final res = await http.post(
+    final res = await client.post(
       Uri.parse('$_baseUrl/flashcards'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -65,7 +72,7 @@ class ApiService {
   }
 
   static Future<void> deletarFlashcard(int id) async {
-    await http.delete(Uri.parse('$_baseUrl/flashcards/$id'));
+    await client.delete(Uri.parse('$_baseUrl/flashcards/$id'));
   }
 
   // ========================
@@ -76,7 +83,7 @@ class ApiService {
     required int userId,
     required int deckId,
   }) async {
-    final res = await http.post(
+    final res = await client.post(
       Uri.parse('$_baseUrl/study-sessions'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'user_id': userId, 'deck_id': deckId}),
@@ -88,7 +95,7 @@ class ApiService {
     required int sessaoId,
     required bool acerto,
   }) async {
-    final res = await http.post(
+    final res = await client.post(
       Uri.parse('$_baseUrl/study-sessions/$sessaoId/responder'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'acerto': acerto}),
@@ -97,6 +104,6 @@ class ApiService {
   }
 
   static Future<void> finalizarSessao(int sessaoId) async {
-    await http.put(Uri.parse('$_baseUrl/study-sessions/$sessaoId/finalizar'));
+    await client.put(Uri.parse('$_baseUrl/study-sessions/$sessaoId/finalizar'));
   }
 }

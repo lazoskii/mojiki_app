@@ -2,12 +2,14 @@
 // tela inicial (Splash) é exibida.
 
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:mojiki/main.dart';
 import 'package:mojiki/screens/study_screen.dart';
+import 'package:mojiki/services/api_service.dart';
 
 void main() {
   testWidgets('App inicia na tela de Splash', (WidgetTester tester) async {
@@ -24,89 +26,83 @@ void main() {
 
   testWidgets('StudyScreen mostra botões de autoavaliação e envia resposta',
       (WidgetTester tester) async {
-    late HttpServer server;
     final requests = <String>[];
+    final originalClient = ApiService.client;
 
-    HttpOverrides.runZoned(() async {
-      server = await HttpServer.bind('127.0.0.1', 0);
-      final port = server.port;
+    // Substitui o client HTTP do ApiService por um MockClient: ele responde
+    // na hora, sem abrir socket nenhum. Isso importa porque testWidgets roda
+    // dentro de um relógio "fake" (FakeAsync) -- uma requisição de rede de
+    // verdade (ex: um HttpServer local de teste) nunca chega a completar
+    // aí dentro e o teste trava para sempre esperando a resposta.
+    ApiService.client = MockClient((request) async {
+      requests.add('${request.method} ${request.url.path}');
 
-      server.listen((request) async {
-        requests.add('${request.method} ${request.uri.path}');
+      Map<String, dynamic>? body;
+      if (request.method == 'GET' && request.url.path == '/decks/1') {
+        body = {
+          'id': 1,
+          'nome': 'Matemática',
+          'user_id': 1,
+          'cards': [
+            {'id': 10, 'pergunta': '2 + 2', 'resposta': '4', 'deck_id': 1},
+          ],
+        };
+      } else if (request.method == 'POST' &&
+          request.url.path == '/study-sessions') {
+        body = {
+          'id': 99,
+          'user_id': 1,
+          'deck_id': 1,
+          'acertos': 0,
+          'erros': 0,
+          'iniciado_em': '2026-09-07T00:00:00.000Z',
+          'finalizado_em': null,
+        };
+      } else if (request.method == 'POST' &&
+          request.url.path == '/study-sessions/99/responder') {
+        body = {
+          'id': 99,
+          'user_id': 1,
+          'deck_id': 1,
+          'acertos': 1,
+          'erros': 0,
+          'iniciado_em': '2026-09-07T00:00:00.000Z',
+          'finalizado_em': null,
+        };
+      } else if (request.method == 'PUT' &&
+          request.url.path == '/study-sessions/99/finalizar') {
+        body = {
+          'msg': 'Sessão de estudo finalizada',
+          'finalizado_em': '2026-09-07T00:10:00.000Z',
+        };
+      }
 
-        if (request.method == 'GET' && request.uri.path == '/decks/1') {
-          final body = jsonEncode({
-            'id': 1,
-            'nome': 'Matemática',
-            'user_id': 1,
-            'cards': [
-              {'id': 10, 'pergunta': '2 + 2', 'resposta': '4', 'deck_id': 1},
-            ],
-          });
-          request.response
-            ..statusCode = 200
-            ..headers.contentType = ContentType.json
-            ..write(body);
-          await request.response.close();
-          return;
-        }
+      if (body == null) {
+        return http.Response('', 404);
+      }
+      return http.Response(
+        jsonEncode(body),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
 
-        if (request.method == 'POST' && request.uri.path == '/study-sessions') {
-          final body = jsonEncode({
-            'id': 99,
-            'user_id': 1,
-            'deck_id': 1,
-            'acertos': 0,
-            'erros': 0,
-            'iniciado_em': '2026-09-07T00:00:00.000Z',
-            'finalizado_em': null,
-          });
-          request.response
-            ..statusCode = 200
-            ..headers.contentType = ContentType.json
-            ..write(body);
-          await request.response.close();
-          return;
-        }
-
-        if (request.method == 'POST' && request.uri.path == '/study-sessions/99/responder') {
-          final body = jsonEncode({
-            'id': 99,
-            'user_id': 1,
-            'deck_id': 1,
-            'acertos': 1,
-            'erros': 0,
-            'iniciado_em': '2026-09-07T00:00:00.000Z',
-            'finalizado_em': null,
-          });
-          request.response
-            ..statusCode = 200
-            ..headers.contentType = ContentType.json
-            ..write(body);
-          await request.response.close();
-          return;
-        }
-
-        if (request.method == 'PUT' && request.uri.path == '/study-sessions/99/finalizar') {
-          final body = jsonEncode({'msg': 'Sessão de estudo finalizada', 'finalizado_em': '2026-09-07T00:10:00.000Z'});
-          request.response
-            ..statusCode = 200
-            ..headers.contentType = ContentType.json
-            ..write(body);
-          await request.response.close();
-          return;
-        }
-
-        request.response.statusCode = 404;
-        await request.response.close();
-      });
-
-      final uri = Uri.parse('http://127.0.0.1:${server.port}');
-      HttpOverrides.global = _TestHttpOverrides(uri);
-
+    try {
       await tester.pumpWidget(MaterialApp(home: StudyScreen(deckId: 1)));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
+
+      // Os botões "Acertei"/"Errei" só aparecem depois que o card é virado
+      // (StudyScreen só mostra "Toque para virar" antes disso), então
+      // precisamos simular esse toque antes de procurar pelos botões. O
+      // texto "Toque para virar" é IRMÃO do GestureDetector do card (não
+      // filho), então tocar nele não vira o card -- por isso tocamos no
+      // próprio conteúdo do card (a pergunta), que fica dentro do
+      // GestureDetector.
+      expect(find.text('2 + 2'), findsOneWidget);
+      await tester.tap(find.text('2 + 2'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400)); // duração do flip
 
       expect(find.text('Acertei'), findsOneWidget);
       expect(find.text('Errei'), findsOneWidget);
@@ -117,48 +113,9 @@ void main() {
 
       expect(requests, contains('POST /study-sessions'));
       expect(requests, contains('POST /study-sessions/99/responder'));
-    }, (error, stackTrace) {
-      // no-op: o teste vai falhar normalmente em caso de erro
-    });
-
-    await server.close();
-    HttpOverrides.global = null;
-  });
-}
-
-class _TestHttpOverrides extends HttpOverrides {
-  _TestHttpOverrides(this.baseUri);
-
-  final Uri baseUri;
-
-  @override
-  HttpClient createHttpClient(SecurityContext? context) {
-    final client = super.createHttpClient(context);
-    return _ClientAdapter(client, baseUri);
-  }
-}
-
-class _ClientAdapter implements HttpClient {
-  _ClientAdapter(this._inner, this._baseUri);
-
-  final HttpClient _inner;
-  final Uri _baseUri;
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) {
-    if (invocation.memberName == #get || invocation.memberName == #post || invocation.memberName == #put || invocation.memberName == #delete) {
-      final args = invocation.positionalArguments;
-      final uri = args.first as Uri;
-      final rewritten = uri.replace(
-        scheme: _baseUri.scheme,
-        host: _baseUri.host,
-        port: _baseUri.port,
-      );
-      return Function.apply(
-        () => _inner.invoke(invocation.memberName.toString(), [rewritten, if (args.length > 1) args[1]]),
-        [],
-      );
+    } finally {
+      // Restaura o client real pra não vazar o mock pra outros testes.
+      ApiService.client = originalClient;
     }
-    return _inner.invoke(invocation.memberName.toString(), []);
-  }
+  });
 }
