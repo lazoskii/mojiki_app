@@ -37,10 +37,21 @@ class StudySession(BaseModel):
 class IniciarSessao(BaseModel):
     user_id: int
     deck_id: int
+    modo: Optional[str] = None  #semana 10: rapida, diaria ou intensiva (None = estudo livre)
 
-#usuario marca se acertou ou errou o card 
+#usuario marca se acertou ou errou o card
 class RegistrarResposta(BaseModel):
     acerto: bool
 
-    
+
+#semana 8: renomear deck (so o nome muda, user_id continua o mesmo)
+class RenomearDeck(BaseModel):
+    nome: str
+
+
+#feedback enviado pelo usuario (link no menu lateral)
+class EnviarFeedback(BaseModel):
+    mensagem: str
+
+
 

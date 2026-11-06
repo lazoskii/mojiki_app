@@ -32,44 +32,44 @@ A numeração dos blocos segue a ordem de prioridade da apresentação; os bloco
 
 ### Bloco 1 — Autoavaliação real (Acertei / Errei)
 
-- [ ] Adicionar endpoint para registrar a resposta (acerto/erro) de um card estudado — **M**
-- [ ] Persistir o resultado usando o model `StudySession` já existente — **M**
-- [ ] Adicionar botões "Acertei" / "Errei" na tela de estudo (Flutter) — **M**
-- [ ] Chamar a API ao tocar em Acertei/Errei — **P**
-- [ ] Testar o fluxo completo: marcar resposta → salvar → conferir no banco — **P**
+- [x] Adicionar endpoint para registrar a resposta (acerto/erro) de um card estudado — **M**
+- [x] Persistir o resultado usando o model `StudySession` já existente — **M**
+- [x] Adicionar botões "Acertei" / "Errei" na tela de estudo (Flutter) — **M**
+- [x] Chamar a API ao tocar em Acertei/Errei — **P**
+- [x] Testar o fluxo completo: marcar resposta → salvar → conferir no banco — **P**
 
 ### Bloco 2 — Documento de requisitos
 
-- [ ] Levantar as regras que o app deveria seguir (ex.: não criar deck sem nome) — **M**
-- [ ] Escrever os 8 requisitos em formato claro — **P**
+- [x] Levantar as regras que o app deveria seguir (ex.: não criar deck sem nome) — **M**
+- [x] Escrever os 8 requisitos em formato claro — **P** → [docs/requisitos.md](docs/requisitos.md)
 - [ ] Revisar os requisitos com o grupo/professor — **P**
 
 ### Bloco 3 — Casos de teste ligados aos requisitos
 
-- [ ] Criar um caso de teste por requisito (passo a passo + resultado esperado) — **M**
-- [ ] Executar os testes manualmente no app atual — **M**
-- [ ] Registrar os defeitos encontrados (ex.: deck com nome vazio aceito, exclusão sem confirmação) — **P**
-- [ ] Priorizar quais defeitos corrigir primeiro — **P**
+- [x] Criar um caso de teste por requisito (passo a passo + resultado esperado) — **M** → [docs/casos_de_teste.md](docs/casos_de_teste.md)
+- [x] Executar os testes manualmente no app atual — **M**
+- [x] Registrar os defeitos encontrados (ex.: deck com nome vazio aceito, exclusão sem confirmação) — **P**
+- [x] Priorizar quais defeitos corrigir primeiro — **P**
 
 ### Bloco 4 — Robustez (tratamento de erro e confirmação)
 
-- [ ] Adicionar tratamento de erro nas chamadas de API, em vez de travar no "carregando" — **M**
-- [ ] Mostrar mensagem de erro/retry quando a API falhar ou a rede cair — **M**
-- [ ] Adicionar diálogo de confirmação antes de excluir um deck — **P**
-- [ ] Adicionar diálogo de confirmação antes de excluir um flashcard — **P**
+- [x] Adicionar tratamento de erro nas chamadas de API, em vez de travar no "carregando" — **M**
+- [x] Mostrar mensagem de erro/retry quando a API falhar ou a rede cair — **M**
+- [x] Adicionar diálogo de confirmação antes de excluir um deck — **P**
+- [x] Adicionar diálogo de confirmação antes de excluir um flashcard — **P**
 
 ### Bloco 5 — CRUD incompleto (edição)
 
-- [ ] Ligar a tela de edição de flashcard ao endpoint `PUT /flashcards/{id}` já existente — **M**
-- [ ] Criar endpoint de edição (renomear) de deck no backend — **M**
-- [ ] Adicionar opção de editar deck na interface — **P**
+- [x] Ligar a tela de edição de flashcard ao endpoint `PUT /flashcards/{id}` já existente — **M**
+- [x] Criar endpoint de edição (renomear) de deck no backend — **M**
+- [x] Adicionar opção de editar deck na interface — **P**
 - [ ] Testar a edição de flashcard e de deck — **P**
 
 ### Bloco 6 — Funcionalidade morta (modos de estudo)
 
-- [ ] Definir o comportamento esperado de cada modo (Rápida / Diária / Intensiva) — **P**
-- [ ] Implementar a ação dos cards de modo de estudo — **G**
-- [ ] Ligar os modos de estudo ao registro de progresso (`StudySession`) — **M**
+- [x] Definir o comportamento esperado de cada modo (Rápida / Diária / Intensiva) — **P**
+- [x] Implementar a ação dos cards de modo de estudo — **G**
+- [x] Ligar os modos de estudo ao registro de progresso (`StudySession`) — **M**
 
 ### Bloco 7 — Outras melhorias menores
 

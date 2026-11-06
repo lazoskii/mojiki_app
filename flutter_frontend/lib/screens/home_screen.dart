@@ -4,6 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/deck.dart';
 import '../services/api_service.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/confirm_dialog.dart';
+import '../widgets/error_retry.dart';
+import '../widgets/rename_deck_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,6 +19,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // equivale aos useState do React:
   List<Deck> _decks = [];
   bool _loading = true;
+  String? _error;
   String _userName = 'Estudante';
   final _novoDeckController = TextEditingController();
 
@@ -33,29 +37,81 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // equivale ao useEffect(() => fetch(...), [])
   Future<void> _carregarDados() async {
-    final prefs = await SharedPreferences.getInstance();
-    final decks = await ApiService.listarDecks();
     setState(() {
-      _userName = prefs.getString('userName') ?? 'Estudante';
-      _decks = decks;
-      _loading = false;
+      _loading = true;
+      _error = null;
     });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final decks = await ApiService.listarDecks();
+      if (!mounted) return;
+      setState(() {
+        _userName = prefs.getString('userName') ?? 'Estudante';
+        _decks = decks;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  void _mostrarErro(Object e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(e.toString())),
+    );
   }
 
   Future<void> _criarDeck() async {
     final nome = _novoDeckController.text.trim();
     if (nome.isEmpty) return;
 
-    final novo = await ApiService.criarDeck(nome);
-    setState(() {
-      _decks.add(novo);
-      _novoDeckController.clear();
-    });
+    try {
+      final novo = await ApiService.criarDeck(nome);
+      if (!mounted) return;
+      setState(() {
+        _decks.add(novo);
+        _novoDeckController.clear();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      _mostrarErro(e);
+    }
   }
 
-  Future<void> _deletarDeck(int id) async {
-    await ApiService.deletarDeck(id);
-    setState(() => _decks.removeWhere((d) => d.id == id));
+  // RF07 — renomear deck; troca só o deck editado na lista.
+  Future<void> _renomearDeck(Deck deck) async {
+    final atualizado = await mostrarRenomearDeck(context, deck);
+    if (atualizado == null || !mounted) return;
+
+    setState(() {
+      _decks = _decks.map((d) => d.id == atualizado.id ? atualizado : d).toList();
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Deck renomeado')),
+    );
+  }
+
+  Future<void> _deletarDeck(int id, String nome) async {
+    final confirmado = await confirmarExclusao(
+      context,
+      titulo: 'Excluir deck?',
+      mensagem:
+          'O deck "$nome" e todos os seus flashcards serão apagados permanentemente.',
+    );
+    if (!confirmado) return;
+
+    try {
+      await ApiService.deletarDeck(id);
+      if (!mounted) return;
+      setState(() => _decks.removeWhere((d) => d.id == id));
+    } catch (e) {
+      if (!mounted) return;
+      _mostrarErro(e);
+    }
   }
 
   Future<void> _logout() async {
@@ -81,7 +137,9 @@ class _HomeScreenState extends State<HomeScreen> {
         child: SafeArea(
           child: _loading
               ? const Center(child: CircularProgressIndicator(color: Colors.white))
-              : Column(
+              : _error != null
+                  ? ErrorRetry(message: _error!, onRetry: _carregarDados)
+                  : Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // Header
@@ -192,7 +250,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                   deck: deck,
                                   onTap: () =>
                                       context.go('/study/${deck.id}'),
-                                  onDelete: () => _deletarDeck(deck.id),
+                                  onEdit: () => _renomearDeck(deck),
+                                  onDelete: () =>
+                                      _deletarDeck(deck.id, deck.nome),
                                 );
                               },
                             ),
@@ -209,11 +269,13 @@ class _HomeScreenState extends State<HomeScreen> {
 class _DeckCard extends StatelessWidget {
   final Deck deck;
   final VoidCallback onTap;
+  final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   const _DeckCard({
     required this.deck,
     required this.onTap,
+    required this.onEdit,
     required this.onDelete,
   });
 
@@ -245,6 +307,19 @@ class _DeckCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                GestureDetector(
+                  onTap: onEdit,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.edit_outlined,
+                        color: Colors.white, size: 18),
+                  ),
+                ),
+                const SizedBox(width: 8),
                 GestureDetector(
                   onTap: onDelete,
                   child: Container(

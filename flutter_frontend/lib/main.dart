@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'models/modo_estudo.dart';
 import 'screens/splash_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/welcome_screen.dart';
@@ -21,6 +22,8 @@ final _router = GoRouter(
       // pathParameters = equivale ao useParams() do React Router
       builder: (_, state) => StudyScreen(
         deckId: int.parse(state.pathParameters['deckId']!),
+        // ?modo=rapida|diaria|intensiva quando vem da tela de Sessão de Estudo
+        modo: ModoEstudo.deNome(state.uri.queryParameters['modo']),
       ),
     ),
     GoRoute(path: '/study-session', builder: (context, _) => const StudySessionScreen()),

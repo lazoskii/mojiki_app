@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -14,33 +15,86 @@ String get _baseUrl {
   return 'http://127.0.0.1:8000';
 }
 
+// Erro de API com mensagem já pronta pra mostrar ao usuário (RF03 —
+// tratamento de erro nas chamadas de API, em vez de travar no carregando).
+class ApiException implements Exception {
+  final String message;
+  const ApiException(this.message);
+
+  @override
+  String toString() => message;
+}
+
+const _erroConexao =
+    'Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.';
+
 class ApiService {
+  // Executa a chamada HTTP tratando falhas de rede/timeout; quem chama
+  // ainda decide o que fazer com a Response (checar status, decodificar).
+  static Future<http.Response> _enviar(
+    Future<http.Response> Function() requisicao,
+  ) async {
+    try {
+      return await requisicao().timeout(const Duration(seconds: 10));
+    } on TimeoutException {
+      throw const ApiException(_erroConexao);
+    } on SocketException {
+      throw const ApiException(_erroConexao);
+    } on http.ClientException {
+      throw const ApiException(_erroConexao);
+    }
+  }
+
+  // Decodifica o corpo da resposta, verificando tanto o status HTTP quanto
+  // o formato {"erro": "..."} que o backend usa para erros de negócio.
+  static dynamic _decodificar(http.Response res) {
+    if (res.statusCode >= 400) {
+      throw ApiException('Erro no servidor (${res.statusCode}). Tente novamente.');
+    }
+    final corpo = jsonDecode(res.body);
+    if (corpo is Map && corpo.containsKey('erro')) {
+      throw ApiException(corpo['erro'].toString());
+    }
+    return corpo;
+  }
+
   // ========================
   // DECKS
   // ========================
 
   static Future<List<Deck>> listarDecks() async {
-    final res = await http.get(Uri.parse('$_baseUrl/decks'));
-    final List data = jsonDecode(res.body);
+    final res = await _enviar(() => http.get(Uri.parse('$_baseUrl/decks')));
+    final List data = _decodificar(res);
     return data.map((d) => Deck.fromJson(d)).toList();
   }
 
   static Future<Deck> buscarDeck(int id) async {
-    final res = await http.get(Uri.parse('$_baseUrl/decks/$id'));
-    return Deck.fromJson(jsonDecode(res.body));
+    final res = await _enviar(() => http.get(Uri.parse('$_baseUrl/decks/$id')));
+    return Deck.fromJson(_decodificar(res));
   }
 
   static Future<Deck> criarDeck(String nome) async {
-    final res = await http.post(
-      Uri.parse('$_baseUrl/decks'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'nome': nome, 'user_id': 1}),
-    );
-    return Deck.fromJson(jsonDecode(res.body));
+    final res = await _enviar(() => http.post(
+          Uri.parse('$_baseUrl/decks'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'nome': nome, 'user_id': 1}),
+        ));
+    return Deck.fromJson(_decodificar(res));
+  }
+
+  // RF07 — renomear deck via PUT /decks/{id}
+  static Future<Deck> renomearDeck(int id, String nome) async {
+    final res = await _enviar(() => http.put(
+          Uri.parse('$_baseUrl/decks/$id'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'nome': nome}),
+        ));
+    return Deck.fromJson(_decodificar(res));
   }
 
   static Future<void> deletarDeck(int id) async {
-    await http.delete(Uri.parse('$_baseUrl/decks/$id'));
+    final res = await _enviar(() => http.delete(Uri.parse('$_baseUrl/decks/$id')));
+    _decodificar(res);
   }
 
   // ========================
@@ -52,20 +106,40 @@ class ApiService {
     required String resposta,
     required int deckId,
   }) async {
-    final res = await http.post(
-      Uri.parse('$_baseUrl/flashcards'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'pergunta': pergunta,
-        'resposta': resposta,
-        'deck_id': deckId,
-      }),
-    );
-    return Flashcard.fromJson(jsonDecode(res.body));
+    final res = await _enviar(() => http.post(
+          Uri.parse('$_baseUrl/flashcards'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'pergunta': pergunta,
+            'resposta': resposta,
+            'deck_id': deckId,
+          }),
+        ));
+    return Flashcard.fromJson(_decodificar(res));
+  }
+
+  // RF06 — edição de flashcard via PUT /flashcards/{id}
+  static Future<Flashcard> atualizarFlashcard({
+    required int id,
+    required String pergunta,
+    required String resposta,
+    required int deckId,
+  }) async {
+    final res = await _enviar(() => http.put(
+          Uri.parse('$_baseUrl/flashcards/$id'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'pergunta': pergunta,
+            'resposta': resposta,
+            'deck_id': deckId,
+          }),
+        ));
+    return Flashcard.fromJson(_decodificar(res));
   }
 
   static Future<void> deletarFlashcard(int id) async {
-    await http.delete(Uri.parse('$_baseUrl/flashcards/$id'));
+    final res = await _enviar(() => http.delete(Uri.parse('$_baseUrl/flashcards/$id')));
+    _decodificar(res);
   }
 
   // ========================
@@ -75,28 +149,44 @@ class ApiService {
   static Future<Map<String, dynamic>> iniciarSessao({
     required int userId,
     required int deckId,
+    String? modo, // rapida/diaria/intensiva, ou null quando aberto da Home
   }) async {
-    final res = await http.post(
-      Uri.parse('$_baseUrl/study-sessions'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'user_id': userId, 'deck_id': deckId}),
-    );
-    return jsonDecode(res.body);
+    final res = await _enviar(() => http.post(
+          Uri.parse('$_baseUrl/study-sessions'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'user_id': userId, 'deck_id': deckId, 'modo': modo}),
+        ));
+    return _decodificar(res);
   }
 
   static Future<Map<String, dynamic>> registrarResposta({
     required int sessaoId,
     required bool acerto,
   }) async {
-    final res = await http.post(
-      Uri.parse('$_baseUrl/study-sessions/$sessaoId/responder'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'acerto': acerto}),
-    );
-    return jsonDecode(res.body);
+    final res = await _enviar(() => http.post(
+          Uri.parse('$_baseUrl/study-sessions/$sessaoId/responder'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'acerto': acerto}),
+        ));
+    return _decodificar(res);
   }
 
   static Future<void> finalizarSessao(int sessaoId) async {
-    await http.put(Uri.parse('$_baseUrl/study-sessions/$sessaoId/finalizar'));
+    final res = await _enviar(
+        () => http.put(Uri.parse('$_baseUrl/study-sessions/$sessaoId/finalizar')));
+    _decodificar(res);
+  }
+
+  // ========================
+  // FEEDBACK
+  // ========================
+
+  static Future<void> enviarFeedback(String mensagem) async {
+    final res = await _enviar(() => http.post(
+          Uri.parse('$_baseUrl/feedback'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'mensagem': mensagem}),
+        ));
+    _decodificar(res);
   }
 }

@@ -43,6 +43,22 @@ def create_tables():
     )
     """)
 
+    #semana 10: modo de estudo da sessao (rapida/diaria/intensiva, ou NULL
+    #quando o deck e aberto direto da Home). ALTER TABLE pra nao precisar
+    #apagar o flashcards.db de quem ja tem a tabela criada.
+    colunas = [c["name"] for c in cursor.execute("PRAGMA table_info(study_sessions)")]
+    if "modo" not in colunas:
+        cursor.execute("ALTER TABLE study_sessions ADD COLUMN modo TEXT")
+
+    #guarda o feedback enviado pelos usuarios (link "Enviar feedback" no menu)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS feedbacks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        mensagem TEXT,
+        criado_em TEXT
+    )
+    """)
+
     conn.commit()
     conn.close()
 

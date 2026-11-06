@@ -1,6 +1,6 @@
 #fastapi cria o servidor, "app" é a API
-from fastapi import FastAPI
-from models import Flashcard, Deck, IniciarSessao, RegistrarResposta
+from fastapi import FastAPI, HTTPException
+from models import Flashcard, Deck, RenomearDeck, IniciarSessao, RegistrarResposta, EnviarFeedback
 from fastapi.middleware.cors import CORSMiddleware
 from database import create_tables, get_connection, seed_dados_teste
 from datetime import datetime
@@ -92,10 +92,21 @@ def atualizar_flashcard(id: int, card: Flashcard):
         (card.pergunta, card.resposta, card.deck_id, id)
     )
 
+    #semana 7: se nenhuma linha foi alterada, o id nao existe
+    if cursor.rowcount == 0:
+        conn.close()
+        return {"erro": "Flashcard não encontrado"}
+
     conn.commit()
     conn.close()
 
-    return {"msg": "Flashcard atualizado"}
+    #devolve o card atualizado (o app usa pra atualizar a tela sem recarregar)
+    return {
+        "id": id,
+        "pergunta": card.pergunta,
+        "resposta": card.resposta,
+        "deck_id": card.deck_id
+    }
 
 
 #rota: deletar flashcard
@@ -176,6 +187,33 @@ def buscar_deck(id: int):
     }
 
 
+#rota: renomear deck (semana 8 - RF07)
+@app.put("/decks/{id}")
+def renomear_deck(id: int, deck: RenomearDeck):
+    nome = deck.nome.strip()
+    if not nome:
+        raise HTTPException(status_code=400, detail="Nome do deck vazio")
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("UPDATE decks SET nome = ? WHERE id = ?", (nome, id))
+
+    #se nenhuma linha foi alterada, o id nao existe
+    if cursor.rowcount == 0:
+        conn.close()
+        return {"erro": "Deck não encontrado"}
+
+    conn.commit()
+
+    cursor.execute("SELECT * FROM decks WHERE id = ?", (id,))
+    deck_atualizado = cursor.fetchone()
+
+    conn.close()
+
+    return dict(deck_atualizado)
+
+
 #rota: deletar deck (junto com os cards)
 @app.delete("/decks/{id}")
 def deletar_deck(id: int):
@@ -195,17 +233,24 @@ def deletar_deck(id: int):
 # study sessions para autoavaliacao
 
 
+#semana 10: modos aceitos (None = deck aberto direto da Home, sem modo)
+MODOS_ESTUDO = (None, "rapida", "diaria", "intensiva")
+
+
 #rota: iniciar uma sessao de estudo (comeca com acertos=0 e erros=0)
 @app.post("/study-sessions")
 def iniciar_sessao(sessao: IniciarSessao):
+    if sessao.modo not in MODOS_ESTUDO:
+        raise HTTPException(status_code=400, detail="Modo de estudo inválido")
+
     conn = get_connection()
     cursor = conn.cursor()
 
     agora = datetime.utcnow().isoformat()
 
     cursor.execute(
-        "INSERT INTO study_sessions (user_id, deck_id, acertos, erros, iniciado_em, finalizado_em) VALUES (?, ?, 0, 0, ?, NULL)",
-        (sessao.user_id, sessao.deck_id, agora)
+        "INSERT INTO study_sessions (user_id, deck_id, acertos, erros, iniciado_em, finalizado_em, modo) VALUES (?, ?, 0, 0, ?, NULL, ?)",
+        (sessao.user_id, sessao.deck_id, agora, sessao.modo)
     )
 
     conn.commit()
@@ -219,7 +264,8 @@ def iniciar_sessao(sessao: IniciarSessao):
         "acertos": 0,
         "erros": 0,
         "iniciado_em": agora,
-        "finalizado_em": None
+        "finalizado_em": None,
+        "modo": sessao.modo
     }
 
 
@@ -285,6 +331,34 @@ def registrar_resposta(id: int, resposta: RegistrarResposta):
     conn.close()
 
     return dict(sessao_atualizada)
+
+
+
+# =========================
+# FEEDBACK
+# =========================
+
+#rota: enviar feedback (link "Enviar feedback" no menu lateral)
+@app.post("/feedback")
+def enviar_feedback(feedback: EnviarFeedback):
+    mensagem = feedback.mensagem.strip()
+    if not mensagem:
+        raise HTTPException(status_code=400, detail="Mensagem de feedback vazia")
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    agora = datetime.utcnow().isoformat()
+    cursor.execute(
+        "INSERT INTO feedbacks (mensagem, criado_em) VALUES (?, ?)",
+        (mensagem, agora)
+    )
+
+    conn.commit()
+    novo_id = cursor.lastrowid
+    conn.close()
+
+    return {"id": novo_id, "mensagem": mensagem, "criado_em": agora}
 
 
 #rota: finalizar uma sessao de estudo

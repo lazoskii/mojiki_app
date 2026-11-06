@@ -18,7 +18,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   // entrada em cascata (motion.div com delay crescente) do React.
   late final AnimationController _controller;
 
-  static const _kanjis = ['古', '文', '字'];
+  static const _kanjis = ['文', '字', '記'];
 
   @override
   void initState() {
@@ -176,9 +176,9 @@ class _MiniFlashcardColumn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const chars = [
-      (romaji: 'ko', hiragana: 'こ'),
       (romaji: 'mo', hiragana: 'も'),
       (romaji: 'ji', hiragana: 'じ'),
+      (romaji: 'ki', hiragana: 'き'),
     ];
 
     return Column(

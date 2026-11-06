@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import '../models/conquista.dart';
 import '../models/deck.dart';
 import '../services/api_service.dart';
 import '../services/progress_service.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/error_retry.dart';
 
 // Tela de progresso do usuário (equivale a Progress.tsx do frontend React).
 // Diferente da versão React (que usava números aleatórios de "precisão"
@@ -18,9 +20,13 @@ class ProgressScreen extends StatefulWidget {
 
 class _ProgressScreenState extends State<ProgressScreen> {
   bool _loading = true;
+  String? _error;
   List<Deck> _decks = [];
   int _cardsStudied = 0;
   int _streak = 0;
+  int _xp = 0;
+  int _nivel = 1;
+  int _totalAcertos = 0;
 
   @override
   void initState() {
@@ -29,16 +35,32 @@ class _ProgressScreenState extends State<ProgressScreen> {
   }
 
   Future<void> _carregar() async {
-    final resumo = await ApiService.listarDecks();
-    final decks = await Future.wait(resumo.map((d) => ApiService.buscarDeck(d.id)));
-    final stats = await ProgressService.obterStats();
-    if (!mounted) return;
     setState(() {
-      _decks = decks;
-      _cardsStudied = stats.cardsStudied;
-      _streak = stats.streak;
-      _loading = false;
+      _loading = true;
+      _error = null;
     });
+    try {
+      final resumo = await ApiService.listarDecks();
+      final decks =
+          await Future.wait(resumo.map((d) => ApiService.buscarDeck(d.id)));
+      final stats = await ProgressService.obterStats();
+      if (!mounted) return;
+      setState(() {
+        _decks = decks;
+        _cardsStudied = stats.cardsStudied;
+        _streak = stats.streak;
+        _xp = stats.xp;
+        _nivel = stats.nivel;
+        _totalAcertos = stats.totalAcertos;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
   }
 
   @override
@@ -64,7 +86,9 @@ class _ProgressScreenState extends State<ProgressScreen> {
         child: SafeArea(
           child: _loading
               ? const Center(child: CircularProgressIndicator(color: Colors.white))
-              : Column(
+              : _error != null
+                  ? ErrorRetry(message: _error!, onRetry: _carregar)
+                  : Column(
                   children: [
                     // Header
                     Padding(
@@ -96,6 +120,56 @@ class _ProgressScreenState extends State<ProgressScreen> {
                       child: ListView(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         children: [
+                          // Nível e XP (gamificação simples: 10 XP por
+                          // acerto, sobe de nível a cada 100 XP)
+                          Container(
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.star,
+                                            color: Color(0xFFFACC15), size: 20),
+                                        const SizedBox(width: 6),
+                                        Text('Nível $_nivel',
+                                            style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600)),
+                                      ],
+                                    ),
+                                    Text(
+                                        '${_xp % ProgressService.xpPorNivel}/${ProgressService.xpPorNivel} XP',
+                                        style: const TextStyle(
+                                            color: Colors.white70, fontSize: 12)),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: LinearProgressIndicator(
+                                    value: (_xp % ProgressService.xpPorNivel) /
+                                        ProgressService.xpPorNivel,
+                                    minHeight: 10,
+                                    backgroundColor: Colors.white.withValues(alpha: 0.1),
+                                    valueColor: const AlwaysStoppedAnimation<Color>(
+                                        Color(0xFFFACC15)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+
                           // Grid de estatísticas
                           GridView.count(
                             crossAxisCount: 2,
@@ -172,6 +246,33 @@ class _ProgressScreenState extends State<ProgressScreen> {
                           ),
                           const SizedBox(height: 24),
 
+                          const Text('Conquistas',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 12),
+                          GridView.count(
+                            crossAxisCount: 2,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: 1.5,
+                            children: [
+                              for (final c in conquistas)
+                                _ConquistaCard(
+                                  conquista: c,
+                                  desbloqueada: c.desbloqueada(
+                                    cardsStudied: _cardsStudied,
+                                    streak: _streak,
+                                    totalAcertos: _totalAcertos,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+
                           const Text('Cards por Deck',
                               style: TextStyle(
                                   color: Colors.white,
@@ -241,6 +342,55 @@ class _ProgressScreenState extends State<ProgressScreen> {
                   ],
                 ),
         ),
+      ),
+    );
+  }
+}
+
+class _ConquistaCard extends StatelessWidget {
+  final Conquista conquista;
+  final bool desbloqueada;
+
+  const _ConquistaCard({required this.conquista, required this.desbloqueada});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: desbloqueada ? 0.1 : 0.04),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: desbloqueada
+              ? const Color(0xFFFACC15).withValues(alpha: 0.5)
+              : Colors.white.withValues(alpha: 0.1),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            desbloqueada ? conquista.icon : Icons.lock_outline,
+            color: desbloqueada ? const Color(0xFFFACC15) : Colors.white38,
+            size: 22,
+          ),
+          const SizedBox(height: 6),
+          Text(conquista.titulo,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  color: desbloqueada ? Colors.white : Colors.white38,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600)),
+          const SizedBox(height: 2),
+          Text(conquista.descricao,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  color: desbloqueada ? Colors.white60 : Colors.white24,
+                  fontSize: 10)),
+        ],
       ),
     );
   }

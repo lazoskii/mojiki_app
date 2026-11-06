@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'feedback_dialog.dart';
 
 // Menu lateral de navegação — equivale ao Sidebar.tsx do frontend React.
 class AppDrawer extends StatefulWidget {
@@ -70,7 +71,7 @@ class _AppDrawerState extends State<AppDrawer> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
-                          '古文字',
+                          '文字記',
                           style: TextStyle(
                               color: Colors.white, fontSize: 26, fontWeight: FontWeight.w300),
                         ),
@@ -166,9 +167,27 @@ class _AppDrawerState extends State<AppDrawer> {
                 ),
               ),
 
-              // Footer - Sair
+              // Footer - feedback (pequeno) + Sair
               Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => mostrarFeedbackDialog(context),
+                    icon: const Icon(Icons.chat_bubble_outline,
+                        color: Colors.white54, size: 14),
+                    label: const Text('Enviar feedback',
+                        style: TextStyle(color: Colors.white54, fontSize: 12)),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 child: Material(
                   color: Colors.white.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(14),
