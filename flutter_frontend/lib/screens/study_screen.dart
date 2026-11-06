@@ -530,7 +530,14 @@ class _StudyScreenState extends State<StudyScreen>
                                   style: TextStyle(
                                       color: Colors.white60, fontSize: 16)))
                           : Center(
-                              child: Column(
+                              // SingleChildScrollView: em telas/alturas
+                              // menores (ex: teclado aberto) o card + botões
+                              // + "Deletar card" podem não caber na área
+                              // disponível. Sem isso, essa Column dava
+                              // overflow de RenderFlex (bug encontrado ao
+                              // rodar os testes de widget).
+                              child: SingleChildScrollView(
+                                child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   // Card com animação de flip
@@ -672,6 +679,7 @@ class _StudyScreenState extends State<StudyScreen>
                                     ],
                                   ),
                                 ],
+                                ),
                               ),
                             ),
                     ),

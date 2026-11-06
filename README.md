@@ -93,7 +93,7 @@ Estimativa a partir de hoje (25/08) até a entrega em 17/11 — 12 semanas ao to
 |---|---|---|---|
 | 1 | 25/08 – 31/08 | Bloco 1 | Autoavaliação real — endpoint + persistência (StudySession) |
 | 2 | 01/09 – 07/09 | Bloco 1 | Autoavaliação real — botões no Flutter, integração e testes |
-| 3 | 08/09 – 14/09 | Bloco 2 | Documento de requisitos |
+| 3 | 08/09 – 14/09 | Bloco 2 | Documento de requisitos e tela de progresso com porcentagem |
 | 4 | 15/09 – 21/09 | Bloco 3 | Casos de teste ligados aos requisitos |
 | 5 | 22/09 – 28/09 | Bloco 4 | Robustez — tratamento de erro nas chamadas de API |
 | 6 | 29/09 – 05/10 | Bloco 4 | Robustez — confirmação antes de excluir |

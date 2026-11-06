@@ -29,6 +29,13 @@ const _erroConexao =
     'Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.';
 
 class ApiService {
+  // Cliente HTTP injetável: em produção usa um http.Client() padrão de
+  // verdade; nos testes de widget dá pra trocar por um MockClient
+  // (package:http/testing.dart) pra simular respostas da API sem precisar
+  // de requisições de rede reais (que não funcionam dentro do ambiente de
+  // tempo "fake" do testWidgets).
+  static http.Client client = http.Client();
+
   // Executa a chamada HTTP tratando falhas de rede/timeout; quem chama
   // ainda decide o que fazer com a Response (checar status, decodificar).
   static Future<http.Response> _enviar(
@@ -63,18 +70,18 @@ class ApiService {
   // ========================
 
   static Future<List<Deck>> listarDecks() async {
-    final res = await _enviar(() => http.get(Uri.parse('$_baseUrl/decks')));
+    final res = await _enviar(() => client.get(Uri.parse('$_baseUrl/decks')));
     final List data = _decodificar(res);
     return data.map((d) => Deck.fromJson(d)).toList();
   }
 
   static Future<Deck> buscarDeck(int id) async {
-    final res = await _enviar(() => http.get(Uri.parse('$_baseUrl/decks/$id')));
+    final res = await _enviar(() => client.get(Uri.parse('$_baseUrl/decks/$id')));
     return Deck.fromJson(_decodificar(res));
   }
 
   static Future<Deck> criarDeck(String nome) async {
-    final res = await _enviar(() => http.post(
+    final res = await _enviar(() => client.post(
           Uri.parse('$_baseUrl/decks'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({'nome': nome, 'user_id': 1}),
@@ -84,7 +91,7 @@ class ApiService {
 
   // RF07 — renomear deck via PUT /decks/{id}
   static Future<Deck> renomearDeck(int id, String nome) async {
-    final res = await _enviar(() => http.put(
+    final res = await _enviar(() => client.put(
           Uri.parse('$_baseUrl/decks/$id'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({'nome': nome}),
@@ -93,7 +100,7 @@ class ApiService {
   }
 
   static Future<void> deletarDeck(int id) async {
-    final res = await _enviar(() => http.delete(Uri.parse('$_baseUrl/decks/$id')));
+    final res = await _enviar(() => client.delete(Uri.parse('$_baseUrl/decks/$id')));
     _decodificar(res);
   }
 
@@ -106,7 +113,7 @@ class ApiService {
     required String resposta,
     required int deckId,
   }) async {
-    final res = await _enviar(() => http.post(
+    final res = await _enviar(() => client.post(
           Uri.parse('$_baseUrl/flashcards'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({
@@ -125,7 +132,7 @@ class ApiService {
     required String resposta,
     required int deckId,
   }) async {
-    final res = await _enviar(() => http.put(
+    final res = await _enviar(() => client.put(
           Uri.parse('$_baseUrl/flashcards/$id'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({
@@ -138,7 +145,7 @@ class ApiService {
   }
 
   static Future<void> deletarFlashcard(int id) async {
-    final res = await _enviar(() => http.delete(Uri.parse('$_baseUrl/flashcards/$id')));
+    final res = await _enviar(() => client.delete(Uri.parse('$_baseUrl/flashcards/$id')));
     _decodificar(res);
   }
 
@@ -151,7 +158,7 @@ class ApiService {
     required int deckId,
     String? modo, // rapida/diaria/intensiva, ou null quando aberto da Home
   }) async {
-    final res = await _enviar(() => http.post(
+    final res = await _enviar(() => client.post(
           Uri.parse('$_baseUrl/study-sessions'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({'user_id': userId, 'deck_id': deckId, 'modo': modo}),
@@ -163,7 +170,7 @@ class ApiService {
     required int sessaoId,
     required bool acerto,
   }) async {
-    final res = await _enviar(() => http.post(
+    final res = await _enviar(() => client.post(
           Uri.parse('$_baseUrl/study-sessions/$sessaoId/responder'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({'acerto': acerto}),
@@ -173,7 +180,7 @@ class ApiService {
 
   static Future<void> finalizarSessao(int sessaoId) async {
     final res = await _enviar(
-        () => http.put(Uri.parse('$_baseUrl/study-sessions/$sessaoId/finalizar')));
+        () => client.put(Uri.parse('$_baseUrl/study-sessions/$sessaoId/finalizar')));
     _decodificar(res);
   }
 
@@ -182,7 +189,7 @@ class ApiService {
   // ========================
 
   static Future<void> enviarFeedback(String mensagem) async {
-    final res = await _enviar(() => http.post(
+    final res = await _enviar(() => client.post(
           Uri.parse('$_baseUrl/feedback'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({'mensagem': mensagem}),
