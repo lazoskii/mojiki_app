@@ -96,7 +96,7 @@ void main() {
       await _assentar(tester);
 
       final campos = find.descendant(
-          of: find.byType(AlertDialog), matching: find.byType(TextFormField));
+          of: find.byType(AlertDialog), matching: find.byType(TextField));
       await tester.enterText(campos.at(0), '3 + 3');
       await tester.enterText(campos.at(1), '6');
       await tester.tap(find.text('Salvar'));
@@ -118,7 +118,7 @@ void main() {
       await tester.tap(find.text('Editar card'));
       await _assentar(tester);
       final campos = find.descendant(
-          of: find.byType(AlertDialog), matching: find.byType(TextFormField));
+          of: find.byType(AlertDialog), matching: find.byType(TextField));
       await tester.enterText(campos.at(0), '   ');
       await tester.tap(find.text('Salvar'));
       await _assentar(tester);
@@ -132,19 +132,22 @@ void main() {
       _telaDeCelular(tester);
       await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
       await _assentar(tester);
-      expect(find.text('Matemática'), findsOneWidget);
+      // o nome aparece no card do deck e no atalho "Continuar"
+      expect(find.text('Matemática'), findsWidgets);
       expect(find.text('2 cards'), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.edit_outlined).first);
+      await tester.tap(find.byTooltip('Opções do deck').first);
+      await _assentar(tester);
+      await tester.tap(find.text('Renomear'));
       await _assentar(tester);
       final campo = find.descendant(
-          of: find.byType(AlertDialog), matching: find.byType(TextFormField));
+          of: find.byType(AlertDialog), matching: find.byType(TextField));
       await tester.enterText(campo, 'Álgebra');
       await tester.tap(find.text('Salvar'));
       await _assentar(tester);
 
       expect(backend.corpos['PUT /decks/1'], {'nome': 'Álgebra'});
-      expect(find.text('Álgebra'), findsOneWidget);
+      expect(find.text('Álgebra'), findsWidgets);
       expect(find.text('Matemática'), findsNothing);
       expect(find.text('2 cards'), findsOneWidget);
     });
@@ -156,9 +159,13 @@ void main() {
       await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
       await _assentar(tester);
 
+      await tester.tap(find.text('Novo deck'));
+      await _assentar(tester);
       await tester.enterText(
-          find.widgetWithText(TextField, 'Nome do novo deck'), '    ');
-      await tester.tap(find.text('Criar'));
+          find.descendant(
+              of: find.byType(BottomSheet), matching: find.byType(TextField)),
+          '    ');
+      await tester.tap(find.text('Criar deck'));
       await _assentar(tester);
 
       expect(find.text('Digite um nome para o deck.'), findsOneWidget);
@@ -170,9 +177,13 @@ void main() {
       await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
       await _assentar(tester);
 
+      await tester.tap(find.text('Novo deck'));
+      await _assentar(tester);
       await tester.enterText(
-          find.widgetWithText(TextField, 'Nome do novo deck'), 'Kanji');
-      await tester.tap(find.text('Criar'));
+          find.descendant(
+              of: find.byType(BottomSheet), matching: find.byType(TextField)),
+          'Kanji');
+      await tester.tap(find.text('Criar deck'));
       await _assentar(tester);
 
       expect(backend.requisicoes, contains('POST /decks'));
@@ -193,7 +204,7 @@ void main() {
       _telaDeCelular(tester);
       await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
       await _assentar(tester);
-      expect(find.text('Matemática'), findsOneWidget);
+      expect(find.text('Matemática'), findsWidgets);
       expect(find.text('Japonês'), findsOneWidget);
 
       await tester.enterText(
@@ -228,7 +239,7 @@ void main() {
       await _assentar(tester);
 
       expect(find.text('Raiz de 9'), findsOneWidget);
-      expect(find.text('2 / 2'), findsOneWidget);
+      expect(find.text('Card 2 de 2'), findsOneWidget);
     });
   });
 }

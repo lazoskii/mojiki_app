@@ -13,7 +13,8 @@ enum ModoEstudo {
     limiteCards: 10,
     repeteErros: false,
     icone: Icons.flash_on,
-    cores: [Color(0xFFEAB308), Color(0xFFC2410C)],
+    cor: Color(0xFFB45309),
+    corClara: Color(0xFFFDF3D7),
   ),
   diaria(
     titulo: 'Prática Diária',
@@ -22,7 +23,8 @@ enum ModoEstudo {
     limiteCards: null,
     repeteErros: false,
     icone: Icons.track_changes,
-    cores: [Color(0xFFDC2626), Color(0xFFB91C1C)],
+    cor: Color(0xFFD1283A),
+    corClara: Color(0xFFFCE9EB),
   ),
   intensiva(
     titulo: 'Sessão Intensiva',
@@ -31,7 +33,8 @@ enum ModoEstudo {
     limiteCards: null,
     repeteErros: true,
     icone: Icons.access_time,
-    cores: [Color(0xFF9333EA), Color(0xFF7F1D1D)],
+    cor: Color(0xFF7E22CE),
+    corClara: Color(0xFFF1E8FB),
   );
 
   const ModoEstudo({
@@ -41,7 +44,8 @@ enum ModoEstudo {
     required this.limiteCards,
     required this.repeteErros,
     required this.icone,
-    required this.cores,
+    required this.cor,
+    required this.corClara,
   });
 
   final String titulo;
@@ -50,7 +54,9 @@ enum ModoEstudo {
   final int? limiteCards;
   final bool repeteErros;
   final IconData icone;
-  final List<Color> cores;
+  // cor do ícone do modo e o fundo claro do quadradinho atrás dele
+  final Color cor;
+  final Color corClara;
 
   // o "name" do enum (rapida/diaria/intensiva) é o que vai pra URL e pro backend
   static ModoEstudo? deNome(String? nome) {

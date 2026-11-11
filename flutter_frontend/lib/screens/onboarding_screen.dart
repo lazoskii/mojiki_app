@@ -53,11 +53,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: AppColors.fundo,
-        ),
-        child: SafeArea(
+      body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(28),
             child: Column(
@@ -80,7 +76,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                                   child: Text(
                                     k,
                                     style: const TextStyle(
-                                      color: Colors.white,
+                                      color: AppColors.texto,
                                       fontSize: 56,
                                       fontWeight: FontWeight.w300,
                                     ),
@@ -104,27 +100,21 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                       const Text(
                         'Bem-vindo ao Mojiki',
                         style: TextStyle(
-                            color: Colors.white, fontSize: 24, fontWeight: FontWeight.w500),
+                            color: AppColors.texto, fontSize: 26, fontWeight: FontWeight.w700),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 8),
                       const Text(
                         'Aprenda japonês com flashcards interativos',
-                        style: TextStyle(color: Colors.white70, fontSize: 14),
+                        style: TextStyle(color: AppColors.textoSuave, fontSize: 15),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 24),
                       SizedBox(
                         width: double.infinity,
                         height: 56,
-                        child: ElevatedButton(
+                        child: FilledButton(
                           onPressed: _comecar,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: const Color(0xFFDC2626),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14)),
-                          ),
                           child: const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -147,7 +137,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                             width: 8,
                             height: 8,
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: i == 1 ? 1 : 0.5),
+                              color: i == 1 ? AppColors.vermelho : AppColors.bordaCampo,
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -160,7 +150,6 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             ),
           ),
         ),
-      ),
     );
   }
 }
@@ -246,23 +235,16 @@ class _MiniFlashcardState extends State<_MiniFlashcard> {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
-          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8)],
-          gradient: _flipped
-              ? const LinearGradient(
-                  colors: [Color(0xFFDC2626), Colors.black],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
-              : null,
-          color: _flipped ? null : Colors.white,
-          border: _flipped ? null : Border.all(color: const Color(0xFFFCA5A5), width: 2),
+          boxShadow: sombraSuave,
+          color: _flipped ? AppColors.vermelho : AppColors.superficie,
+          border: _flipped ? null : Border.all(color: AppColors.linha),
         ),
         child: Text(
           _flipped ? widget.hiragana : widget.romaji,
           style: TextStyle(
             fontSize: _flipped ? 22 : 16,
             fontWeight: FontWeight.w500,
-            color: _flipped ? Colors.white : const Color(0xFF1F2937),
+            color: _flipped ? Colors.white : AppColors.texto,
           ),
         ),
       ),

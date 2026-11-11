@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/deck.dart';
 import '../services/api_service.dart';
+import 'app_campo.dart';
 
 // Diálogo de renomear deck (Bloco 5 / RF07). Já salva via PUT /decks/{id}
 // e devolve o deck atualizado, ou null se cancelar.
@@ -58,16 +59,13 @@ class _RenomearDeckDialogState extends State<_RenomearDeckDialog> {
       title: const Text('Renomear deck'),
       content: Form(
         key: _formKey,
-        child: TextFormField(
+        child: AppCampo(
           controller: _controller,
+          rotulo: 'Nome do deck',
           autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Nome do deck',
-            border: OutlineInputBorder(),
-          ),
-          validator: (value) =>
-              (value == null || value.trim().isEmpty) ? 'Campo obrigatório' : null,
-          onFieldSubmitted: (_) => _salvar(),
+          validator: (texto) =>
+              texto.trim().isEmpty ? 'Campo obrigatório' : null,
+          onSubmitted: (_) => _salvar(),
         ),
       ),
       actions: [

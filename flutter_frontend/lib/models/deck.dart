@@ -1,3 +1,5 @@
+// Deck = conjunto de flashcards. `cards` só vem preenchido no
+// GET /decks/{id}; na listagem (GET /decks) vem só `totalCards`.
 import 'flashcard.dart';
 
 class Deck {

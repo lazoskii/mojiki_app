@@ -11,7 +11,7 @@ Este diagnóstico parte disso: para cada problema encontrado, definimos o requis
 - **CRUD real de decks e flashcards**, persistido em SQLite — não é mais dado mockado.
 - **Navegação completa** entre as 7 telas via go_router, incluindo onboarding só na primeira vez.
 - **Progresso local** — cards estudados e sequência de dias já são acompanhados de verdade.
-- **Menu lateral** unificando o acesso a Decks, Sessão de Estudo e Progresso.
+- **Barra de navegação inferior** (Decks · Estudar · Progresso) — substituiu o menu lateral.
 
 ### Entregue durante o cronograma (Blocos 1 a 7)
 
@@ -21,7 +21,10 @@ Este diagnóstico parte disso: para cada problema encontrado, definimos o requis
 - **Edição** — editar pergunta/resposta de um flashcard e renomear deck.
 - **Modos de estudo** — Sessão Rápida, Prática Diária e Sessão Intensiva com cronômetro, cards embaralhados e o modo gravado na sessão.
 - **Busca** — de decks na Home e de cards dentro de um deck (ignora maiúsculas e acentos).
-- **Extras** — XP, nível e conquistas na tela de Progresso; "Enviar feedback" no menu; tema visual único (`flutter_frontend/lib/theme/app_theme.dart`).
+- **Extras** — XP, nível e conquistas na tela de Progresso; "Enviar feedback" no menu de perfil; atalho "Continuar estudando" na Home.
+- **Importação de decks** — Anki (`.apkg`), Excel (`.xlsx`), CSV/TXT e PDF. No PDF (e em texto solto) o app reconhece sozinho o que é japonês e o que é português em cada linha. Antes de gravar, uma tela de revisão deixa desmarcar, editar e inverter pergunta/resposta.
+- **Foto → cards** — tirar foto ou escolher da galeria (lista de vocabulário, caderno, livro); o texto é lido **no próprio aparelho** (Google ML Kit no Android/iOS, Tesseract.js no navegador — sem instalar nada no PC) e vira cards, num deck novo ou dentro do deck aberto.
+- **Visual** — paleta "Washi" (fundo papel claro, cards brancos, vermelho `#D1283A` só nos destaques) e caixas de texto padronizadas (rótulo em cima, erro com ícone). Tudo centralizado em `flutter_frontend/lib/theme/app_theme.dart` e `flutter_frontend/lib/widgets/app_campo.dart`.
 
 ## Como rodar
 
@@ -29,11 +32,26 @@ Este diagnóstico parte disso: para cada problema encontrado, definimos o requis
 
 ```bash
 cd backend
-pip install -r requirements.txt
-uvicorn main:app --reload
+python -m venv venv                         # só na primeira vez
+venv\Scripts\python -m pip install -r requirements.txt
+venv\Scripts\uvicorn main:app --reload
 ```
 
-O banco `flashcards.db` e o deck de teste são criados automaticamente na primeira execução.
+As bibliotecas ficam no ambiente virtual `backend/venv` (não vai pro git). Rodando o `uvicorn` "solto", o Windows usa o Python global, que não tem as bibliotecas do projeto — por isso o caminho `venv\Scripts\` nos comandos.
+
+O banco `flashcards.db` (sempre na pasta `backend/`) e o deck de teste são criados automaticamente na primeira execução.
+
+**Leitura de fotos (OCR).** A opção "foto → cards" lê o texto **no próprio aparelho**, sem instalar nada:
+
+- **Navegador (Edge/Chrome):** [Tesseract.js](https://github.com/naptha/tesseract.js) (`web/ocr.js`). Na primeira foto baixa o pacote de japonês e português (alguns MB, precisa de internet nessa vez); depois fica em cache.
+- **Android / iOS:** Google ML Kit (`google_mlkit_text_recognition`), offline. O Android já está configurado (`android/app/build.gradle.kts`). No iOS, ao gerar o `ios/Podfile` (primeiro `flutter build ios`), use `platform :ios, '15.5'` e adicione `pod 'GoogleMLKit/TextRecognitionJapanese', '~> 9.0.0'`.
+- **App de Windows:** não tem OCR no aparelho; a foto vai pro backend, que usa o Tesseract instalado no PC (opcional, abaixo). PDFs escaneados também usam esse Tesseract do backend.
+
+**Tesseract no backend (opcional — só para o app de Windows e PDFs escaneados):**
+
+1. Instale no Windows: `winget install UB-Mannheim.TesseractOCR` (ou baixe o [instalador](https://github.com/UB-Mannheim/tesseract/wiki)).
+2. No instalador, em *Additional language data*, marque **Japanese** e **Portuguese**. (Se já instalou sem eles, baixe `jpn.traineddata` e `por.traineddata` de [tessdata](https://github.com/tesseract-ocr/tessdata) e copie para `C:\Program Files\Tesseract-OCR\tessdata`.)
+3. O backend acha o Tesseract em `C:\Program Files\Tesseract-OCR` sozinho; se estiver em outro lugar, defina a variável `TESSERACT_CMD` com o caminho do `tesseract.exe`.
 
 **App** (Flutter):
 
@@ -47,8 +65,28 @@ flutter run -d chrome   # ou -d edge, ou um emulador Android
 
 ```bash
 cd flutter_frontend
-flutter test
+flutter test                      # app: telas, edição, busca, importação
+
+cd backend
+venv\Scripts\python -m unittest -v   # backend: leitura de Anki/Excel/CSV/texto, reconhecimento japonês/português, rotas
 ```
+
+Os testes do backend usam um banco temporário — não mexem no `flashcards.db`.
+
+> Dica: o modo debug do Flutter no navegador é bem mais lento que o app final. Pra sentir a fluidez real (animações, toques), rode com `flutter run -d edge --release`.
+
+## Publicar o app web (GitHub Pages)
+
+O app web é publicado sozinho pelo workflow `.github/workflows/pages.yml` a cada push na `main` que mexa no `flutter_frontend` (ele roda os testes, faz o build e publica).
+
+1. **Uma vez só:** no GitHub, *Settings → Pages → Build and deployment → Source:* **GitHub Actions**.
+2. Faça o push (ou *Actions → Publicar app web → Run workflow*).
+3. O site fica em **https://lazoskii.github.io/mojiki_app/**.
+
+**Backend:** o GitHub Pages só hospeda o site — o backend (FastAPI) precisa estar em outro lugar.
+- Enquanto não houver backend online, o site procura o backend em `http://127.0.0.1:8000`, ou seja, **no computador de quem abre o site**. Funciona pra quem estiver com o backend rodando (o navegador pode pedir permissão de "acesso à rede local"); pra outras pessoas aparece a tela "Sem conexão".
+- Quando o backend estiver online (ex.: Render), crie a variável do repositório **`API_URL`** com o endereço dele (*Settings → Secrets and variables → Actions → Variables*, ex.: `https://mojiki-api.onrender.com`) e rode o workflow de novo.
+- Pra testar o build localmente apontando pra outro backend: `flutter build web --dart-define=API_URL=https://...`
 
 ## Pontos de melhoria
 
@@ -152,7 +190,7 @@ Pendências registradas para depois da entrega:
 
 - **`user_id` fixo** — o app ainda não tem login, então todo deck e toda sessão de estudo são gravados com `user_id = 1`. No app esse valor está centralizado na constante `usuarioFixoId` (`flutter_frontend/lib/services/api_service.dart`); quando existir autenticação real, basta trocar a constante pelo id do usuário logado e fazer o backend filtrar `GET /decks` por usuário.
 - **Progresso só no aparelho** — XP, nível, conquistas e sequência de dias ficam no `SharedPreferences` (local). Com usuários reais, faz sentido levar isso para o backend.
-- **`session_result_screen.dart`** — tela de resultado em página cheia que ficou sem uso depois da junção com a janela `session_results_dialog.dart`; pode ser removida ou reaproveitada.
+- **Importação com IA** — o OCR do Tesseract erra com letra de mão e foto torta; um modelo de visão (ex.: Claude) leria bem melhor, mas exige chave de API e internet. Ficou de fora por escolha (offline e sem custo).
 
 ## Fora do escopo neste momento
 
@@ -161,4 +199,4 @@ Pendências registradas para depois da entrega:
 - Sincronização entre dispositivos.
 - Repetição espaçada (agendar quando cada card volta, como no Anki).
 
-Sobre testes: os casos de teste do Bloco 3 ([docs/casos_de_teste.md](docs/casos_de_teste.md)) são o roteiro manual. Além deles, `flutter_frontend/test/` tem testes automatizados de widget cobrindo autoavaliação, edição, validação e busca.
+Sobre testes: os casos de teste do Bloco 3 ([docs/casos_de_teste.md](docs/casos_de_teste.md)) são o roteiro manual. Além deles, `flutter_frontend/test/` tem testes automatizados de widget (autoavaliação, edição, validação, busca e importação) e `backend/test_backend.py` testa a leitura dos arquivos e as rotas.

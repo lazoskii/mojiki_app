@@ -88,6 +88,12 @@ void main() {
       );
     });
 
+    // tela do tamanho de um celular (na padrão, 800x600, os botões de
+    // autoavaliação ficam fora da área visível)
+    tester.view.physicalSize = const Size(1170, 2532);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
     try {
       await tester.pumpWidget(MaterialApp(home: StudyScreen(deckId: 1)));
       await tester.pump();

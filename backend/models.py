@@ -1,3 +1,5 @@
+#models (pydantic): descrevem o formato do JSON que cada rota RECEBE.
+#o FastAPI valida sozinho: se faltar um campo ou vier o tipo errado, responde 422.
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
@@ -49,7 +51,28 @@ class RenomearDeck(BaseModel):
     nome: str
 
 
-#feedback enviado pelo usuario (link no menu lateral)
+#RF11/RF12: um card vindo da importacao (arquivo ou foto), ja revisado no app
+class CardImportado(BaseModel):
+    pergunta: str
+    resposta: str
+
+#cria um deck novo com varios cards de uma vez (POST /decks/importar)
+class ImportarDeck(BaseModel):
+    nome: str
+    user_id: int = 1  #pendencia: user_id fixo (ver Backlog no README)
+    cards: List[CardImportado]
+
+#adiciona varios cards num deck que ja existe (POST /decks/{id}/flashcards/lote)
+class LoteCards(BaseModel):
+    cards: List[CardImportado]
+
+
+#RF12: texto ja lido da foto no proprio aparelho (POST /importar/texto)
+class TextoImportado(BaseModel):
+    texto: str
+
+
+#feedback enviado pelo usuario (opcao "Enviar feedback" no menu de perfil)
 class EnviarFeedback(BaseModel):
     mensagem: str
 

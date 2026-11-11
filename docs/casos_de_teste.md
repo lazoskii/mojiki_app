@@ -96,6 +96,20 @@ Semana 4 do cronograma (ver [README.md](../README.md), Bloco 3). Um caso de test
 - **Resultado esperado:** só "Raiz de 9" aparece (achado pela resposta); ao tocar, a tela de estudo vai para esse card (2 / 2).
 - **Status:** **Passou** — coberto por teste automatizado.
 
+## CT11 — Importar deck de arquivo (RF11)
+
+- **Pré-condição:** um arquivo `.apkg`, `.xlsx`, `.csv` ou `.pdf` com vocabulário japonês/português.
+- **Passos:** 1) Na aba Decks, tocar em "Importar" → "Arquivo". 2) Escolher o arquivo. 3) Na revisão, desmarcar um card e tocar em "Importar N cards".
+- **Resultado esperado:** o deck aparece na lista só com os cards marcados; no PDF, japonês na pergunta e português na resposta.
+- **Status:** **Passou** — leitura de Anki (formato antigo e novo), Excel, CSV, export de texto do Anki e texto corrido coberta por `backend/test_backend.py`; revisão e gravação cobertas por `flutter_frontend/test/importacao_test.dart`. PDF: extração de texto + mesma regra de linhas (testada); **conferir com um PDF real no app**.
+
+## CT12 — Foto → cards (RF12)
+
+- **Pré-condição:** app no navegador ou no celular (no navegador, internet na primeira foto).
+- **Passos:** 1) Dentro de um deck, tocar em "Da foto" → "Tirar foto" (ou "Escolher da galeria"). 2) Fotografar uma lista "水 - água / 火 - fogo". 3) Revisar e importar.
+- **Resultado esperado:** os pares aparecem na revisão e entram no deck aberto.
+- **Status:** **Parcial** — o motor do navegador (Tesseract.js 5.1.1, `por+jpn`) foi testado numa imagem com "Vocabulário - Lição 1 / 水 (mizu) - água / 火 - fogo / 山 - montanha / ありがとう - obrigado": os 4 pares saíram certos, com acento, e o título foi ignorado. A rota `/importar/texto` e a revisão estão cobertas por testes automatizados. **Falta:** foto real tirada no celular (ML Kit) e o fluxo clicando no navegador.
+
 ## Resumo dos defeitos
 
 | Caso | Requisito | Status inicial (semana 4) | Severidade | Status na entrega |
@@ -110,6 +124,8 @@ Semana 4 do cronograma (ver [README.md](../README.md), Bloco 3). Um caso de test
 | CT08 | RF08 | Falhou | Baixa — visual, não afeta dados nem fluxo principal | Implementado (Bloco 6) — conferir no app |
 | CT09 | RF09 | — (criado no Bloco 7) | Baixa | Passou (Bloco 7) |
 | CT10 | RF10 | — (criado no Bloco 7) | Baixa | Passou (Bloco 7) |
+| CT11 | RF11 | — (criado depois do cronograma) | — | Passou (conferir PDF real no app) |
+| CT12 | RF12 | — (criado depois do cronograma) | — | Parcial — OCR testado em imagem; falta foto real no celular |
 
 ## Priorização para correção
 

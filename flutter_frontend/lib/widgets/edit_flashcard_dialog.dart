@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/flashcard.dart';
 import '../services/api_service.dart';
+import 'app_campo.dart';
 
 // Diálogo de edição de flashcard (Bloco 5 / RF06). Já salva via
 // PUT /flashcards/{id} e devolve o card atualizado, ou null se cancelar.
@@ -40,8 +41,8 @@ class _EditarFlashcardDialogState extends State<_EditarFlashcardDialog> {
     super.dispose();
   }
 
-  String? _obrigatorio(String? value) =>
-      (value == null || value.trim().isEmpty) ? 'Campo obrigatório' : null;
+  String? _obrigatorio(String texto) =>
+      texto.trim().isEmpty ? 'Campo obrigatório' : null;
 
   Future<void> _salvar() async {
     if (!_formKey.currentState!.validate()) return;
@@ -73,23 +74,19 @@ class _EditarFlashcardDialogState extends State<_EditarFlashcardDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextFormField(
+            AppCampo(
               controller: _perguntaController,
+              rotulo: 'Pergunta',
               autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Pergunta',
-                border: OutlineInputBorder(),
-              ),
+              textInputAction: TextInputAction.next,
               validator: _obrigatorio,
             ),
-            const SizedBox(height: 12),
-            TextFormField(
+            const SizedBox(height: 16),
+            AppCampo(
               controller: _respostaController,
-              decoration: const InputDecoration(
-                labelText: 'Resposta',
-                border: OutlineInputBorder(),
-              ),
+              rotulo: 'Resposta',
               validator: _obrigatorio,
+              onSubmitted: (_) => _salvar(),
             ),
           ],
         ),

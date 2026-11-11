@@ -1,9 +1,27 @@
+#API do Mojiki (FastAPI). Cada funcao com @app.<verbo>("/caminho") e uma rota.
+#
+#organizacao deste arquivo:
+#  1. configuracao (app, CORS, tabelas)
+#  2. FLASHCARDS     criar / listar / buscar / editar / excluir
+#  3. DECKS          criar / listar / buscar / renomear / excluir
+#  4. IMPORTACAO     previa de arquivo ou foto + gravar o que foi revisado
+#  5. STUDY SESSIONS autoavaliacao (acertei/errei) e modos de estudo
+#  6. FEEDBACK
+#
+#convencao de erros (o app trata os dois, ver ApiService._decodificar):
+#  - dado invalido (campo vazio, modo invalido...) -> HTTP 400 com {"detail": "..."}
+#  - registro nao encontrado -> HTTP 200 com {"erro": "..."} (formato antigo, mantido)
+
+from datetime import datetime, timezone
+
 #fastapi cria o servidor, "app" é a API
-from fastapi import FastAPI, HTTPException
-from models import Flashcard, Deck, RenomearDeck, IniciarSessao, RegistrarResposta, EnviarFeedback
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+
 from database import create_tables, get_connection, seed_dados_teste
-from datetime import datetime
+from importador import ErroImportacao, gerar_previa, gerar_previa_texto
+from models import (Deck, EnviarFeedback, Flashcard, ImportarDeck, IniciarSessao,
+                    LoteCards, RegistrarResposta, RenomearDeck, TextoImportado)
 
 app = FastAPI()
 
@@ -13,13 +31,22 @@ create_tables()
 #garante que o deck de teste fixo existe (roda em qualquer maquina)
 seed_dados_teste()
 
-app.add_middleware(           #adicionei isso pra nao dar erro no cors q tava
+#CORS: deixa o app (que roda em outra porta/origem, ex.: Flutter web) chamar a API.
+#allow_credentials fica False: o app nao usa cookies, e o navegador recusa
+#"qualquer origem" (*) junto com credenciais.
+app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # permite qualquer origem (ok pra desenvolvimento)
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+#data/hora atual em UTC no formato texto (datetime.utcnow() esta obsoleto no Python 3.12)
+def agora_utc() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
 
 #RF01/RF02: texto obrigatorio. Tira os espacos das pontas e devolve erro 400
 #se sobrar string vazia (antes o backend aceitava deck/card em branco).
@@ -30,12 +57,19 @@ def obrigatorio(valor: str, campo: str) -> str:
     return valor
 
 
+#confere se o deck existe antes de gravar cards nele (antes aceitava qualquer
+#deck_id e criava cards "orfaos" que nunca apareciam no app)
+def deck_existe(cursor, deck_id: int) -> bool:
+    cursor.execute("SELECT 1 FROM decks WHERE id = ?", (deck_id,))
+    return cursor.fetchone() is not None
+
+
 # =========================
 # FLASHCARDS
 # =========================
 
 #rota: criar flashcard
-@app.post("/flashcards") 
+@app.post("/flashcards")
 def criar_flashcard(card: Flashcard):  #usa model (pydantic)
     card.pergunta = obrigatorio(card.pergunta, "Pergunta")
     card.resposta = obrigatorio(card.resposta, "Resposta")
@@ -43,15 +77,17 @@ def criar_flashcard(card: Flashcard):  #usa model (pydantic)
     conn = get_connection()
     cursor = conn.cursor()
 
+    if not deck_existe(cursor, card.deck_id):
+        conn.close()
+        return {"erro": "Deck não encontrado"}
+
     cursor.execute(
         "INSERT INTO flashcards (pergunta, resposta, deck_id) VALUES (?, ?, ?)",
         (card.pergunta, card.resposta, card.deck_id)
     )
 
     conn.commit()
-
     novo_id = cursor.lastrowid  #pega o id gerado automaticamente
-
     conn.close()
 
     return {
@@ -68,7 +104,7 @@ def listar_flashcards():
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT * FROM flashcards")  #busca todos no banco
+    cursor.execute("SELECT * FROM flashcards ORDER BY id")  #busca todos no banco
     cards = cursor.fetchall()
 
     conn.close()
@@ -93,7 +129,7 @@ def buscar_flashcard(id: int):
     return dict(card)
 
 
-#rota: atualizar flashcard
+#rota: atualizar flashcard (semana 7 - RF06)
 @app.put("/flashcards/{id}")
 def atualizar_flashcard(id: int, card: Flashcard):
     card.pergunta = obrigatorio(card.pergunta, "Pergunta")
@@ -107,7 +143,7 @@ def atualizar_flashcard(id: int, card: Flashcard):
         (card.pergunta, card.resposta, card.deck_id, id)
     )
 
-    #semana 7: se nenhuma linha foi alterada, o id nao existe
+    #se nenhuma linha foi alterada, o id nao existe
     if cursor.rowcount == 0:
         conn.close()
         return {"erro": "Flashcard não encontrado"}
@@ -166,7 +202,7 @@ def criar_deck(deck: Deck):
     }
 
 
-#rota: listar decks
+#rota: listar decks (em ordem de criacao)
 @app.get("/decks")
 def listar_decks():
     conn = get_connection()
@@ -177,6 +213,7 @@ def listar_decks():
         SELECT decks.*,
                (SELECT COUNT(*) FROM flashcards WHERE flashcards.deck_id = decks.id) AS total_cards
         FROM decks
+        ORDER BY decks.id
     """)
     decks = cursor.fetchall()
 
@@ -198,7 +235,7 @@ def buscar_deck(id: int):
         conn.close()
         return {"erro": "Deck não encontrado"}
 
-    cursor.execute("SELECT * FROM flashcards WHERE deck_id = ?", (id,))
+    cursor.execute("SELECT * FROM flashcards WHERE deck_id = ? ORDER BY id", (id,))
     cards = cursor.fetchall()
 
     conn.close()
@@ -234,13 +271,14 @@ def renomear_deck(id: int, deck: RenomearDeck):
     return dict(deck_atualizado)
 
 
-#rota: deletar deck (junto com os cards)
+#rota: deletar deck (junto com os cards e as sessoes de estudo dele)
 @app.delete("/decks/{id}")
 def deletar_deck(id: int):
     conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute("DELETE FROM flashcards WHERE deck_id = ?", (id,))
+    cursor.execute("DELETE FROM study_sessions WHERE deck_id = ?", (id,))
     cursor.execute("DELETE FROM decks WHERE id = ?", (id,))
 
     conn.commit()
@@ -249,9 +287,99 @@ def deletar_deck(id: int):
     return {"msg": "Deck deletado"}
 
 
+# =========================
+# IMPORTACAO (RF11 arquivo / RF12 foto)
+# =========================
+#fluxo: 1) o app manda o arquivo pra /importar/previa e recebe os cards
+#       encontrados (nada e gravado); 2) o usuario revisa no app;
+#       3) o app manda so os cards aprovados pra /decks/importar (deck novo)
+#       ou /decks/{id}/flashcards/lote (deck que ja existe).
 
-# study sessions para autoavaliacao
+#rota: ler arquivo (Anki, Excel, CSV, PDF) ou foto e devolver a previa
+@app.post("/importar/previa")
+async def previa_importacao(arquivo: UploadFile = File(...)):
+    dados = await arquivo.read()
+    try:
+        return gerar_previa(arquivo.filename or "", dados)
+    except ErroImportacao as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
+
+#rota: previa a partir do TEXTO de uma foto ja lida no aparelho (RF12).
+#o app faz o OCR la mesmo (ML Kit no celular, Tesseract.js no navegador) e
+#manda so o texto -- assim nao precisa do Tesseract instalado no backend.
+@app.post("/importar/texto")
+def previa_texto(dados: TextoImportado):
+    try:
+        return gerar_previa_texto(dados.texto)
+    except ErroImportacao as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+#grava uma lista de cards num deck, tudo numa transacao so
+#(ou entram todos, ou nenhum). Devolve os cards criados com id.
+def _gravar_cards(cursor, deck_id: int, cards) -> list:
+    criados = []
+    for card in cards:
+        pergunta = obrigatorio(card.pergunta, "Pergunta")
+        resposta = obrigatorio(card.resposta, "Resposta")
+        cursor.execute(
+            "INSERT INTO flashcards (pergunta, resposta, deck_id) VALUES (?, ?, ?)",
+            (pergunta, resposta, deck_id)
+        )
+        criados.append({"id": cursor.lastrowid, "pergunta": pergunta,
+                        "resposta": resposta, "deck_id": deck_id})
+    return criados
+
+
+#rota: criar um deck novo ja com os cards revisados
+@app.post("/decks/importar")
+def importar_deck(dados: ImportarDeck):
+    nome = obrigatorio(dados.nome, "Nome do deck")
+    if not dados.cards:
+        raise HTTPException(status_code=400, detail="Selecione ao menos um card para importar")
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("INSERT INTO decks (nome, user_id) VALUES (?, ?)", (nome, dados.user_id))
+        deck_id = cursor.lastrowid
+        criados = _gravar_cards(cursor, deck_id, dados.cards)
+        conn.commit()
+    except HTTPException:
+        conn.rollback()  #algum card vazio: desfaz o deck inteiro
+        raise
+    finally:
+        conn.close()
+
+    return {"id": deck_id, "nome": nome, "user_id": dados.user_id, "total_cards": len(criados)}
+
+
+#rota: adicionar varios cards num deck que ja existe (foto -> cards dentro do deck)
+@app.post("/decks/{id}/flashcards/lote")
+def adicionar_lote(id: int, dados: LoteCards):
+    if not dados.cards:
+        raise HTTPException(status_code=400, detail="Selecione ao menos um card para importar")
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        if not deck_existe(cursor, id):
+            return {"erro": "Deck não encontrado"}
+        criados = _gravar_cards(cursor, id, dados.cards)
+        conn.commit()
+    except HTTPException:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    return criados
+
+
+# =========================
+# STUDY SESSIONS (autoavaliacao)
+# =========================
 
 #semana 10: modos aceitos (None = deck aberto direto da Home, sem modo)
 MODOS_ESTUDO = (None, "rapida", "diaria", "intensiva")
@@ -266,7 +394,7 @@ def iniciar_sessao(sessao: IniciarSessao):
     conn = get_connection()
     cursor = conn.cursor()
 
-    agora = datetime.utcnow().isoformat()
+    agora = agora_utc()
 
     cursor.execute(
         "INSERT INTO study_sessions (user_id, deck_id, acertos, erros, iniciado_em, finalizado_em, modo) VALUES (?, ?, 0, 0, ?, NULL, ?)",
@@ -295,7 +423,7 @@ def listar_sessoes():
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT * FROM study_sessions")
+    cursor.execute("SELECT * FROM study_sessions ORDER BY id")
     sessoes = cursor.fetchall()
 
     conn.close()
@@ -304,7 +432,6 @@ def listar_sessoes():
 
 
 #rota: GET para buscar uma sessao de estudo pelo id
-
 @app.get("/study-sessions/{id}")
 def buscar_sessao(id: int):
     conn = get_connection()
@@ -353,34 +480,6 @@ def registrar_resposta(id: int, resposta: RegistrarResposta):
     return dict(sessao_atualizada)
 
 
-
-# =========================
-# FEEDBACK
-# =========================
-
-#rota: enviar feedback (link "Enviar feedback" no menu lateral)
-@app.post("/feedback")
-def enviar_feedback(feedback: EnviarFeedback):
-    mensagem = feedback.mensagem.strip()
-    if not mensagem:
-        raise HTTPException(status_code=400, detail="Mensagem de feedback vazia")
-
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    agora = datetime.utcnow().isoformat()
-    cursor.execute(
-        "INSERT INTO feedbacks (mensagem, criado_em) VALUES (?, ?)",
-        (mensagem, agora)
-    )
-
-    conn.commit()
-    novo_id = cursor.lastrowid
-    conn.close()
-
-    return {"id": novo_id, "mensagem": mensagem, "criado_em": agora}
-
-
 #rota: finalizar uma sessao de estudo
 @app.put("/study-sessions/{id}/finalizar")
 def finalizar_sessao(id: int):
@@ -394,7 +493,7 @@ def finalizar_sessao(id: int):
         conn.close()
         return {"erro": "Sessão de estudo não encontrada"}
 
-    agora = datetime.utcnow().isoformat()
+    agora = agora_utc()
 
     cursor.execute("UPDATE study_sessions SET finalizado_em = ? WHERE id = ?", (agora, id))
 
@@ -404,4 +503,28 @@ def finalizar_sessao(id: int):
     return {"msg": "Sessão de estudo finalizada", "finalizado_em": agora}
 
 
+# =========================
+# FEEDBACK
+# =========================
 
+#rota: enviar feedback (opcao "Enviar feedback" no menu de perfil do app)
+@app.post("/feedback")
+def enviar_feedback(feedback: EnviarFeedback):
+    mensagem = feedback.mensagem.strip()
+    if not mensagem:
+        raise HTTPException(status_code=400, detail="Mensagem de feedback vazia")
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    agora = agora_utc()
+    cursor.execute(
+        "INSERT INTO feedbacks (mensagem, criado_em) VALUES (?, ?)",
+        (mensagem, agora)
+    )
+
+    conn.commit()
+    novo_id = cursor.lastrowid
+    conn.close()
+
+    return {"id": novo_id, "mensagem": mensagem, "criado_em": agora}

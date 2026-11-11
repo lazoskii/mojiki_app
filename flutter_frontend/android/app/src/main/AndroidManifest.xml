@@ -1,5 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- acesso ao backend (sem isso a versão release não conecta) -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
+        android:usesCleartextTraffic="true"
         android:label="Mojiki"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">

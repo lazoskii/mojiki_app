@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/conquista.dart';
 import '../models/deck.dart';
 import '../services/api_service.dart';
 import '../services/progress_service.dart';
-import '../widgets/app_drawer.dart';
-import '../widgets/error_retry.dart';
 import '../theme/app_theme.dart';
+import '../widgets/error_retry.dart';
+import '../widgets/menu_perfil.dart';
 
-// Tela de progresso do usuário (equivale a Progress.tsx do frontend React).
-// Diferente da versão React (que usava números aleatórios de "precisão"
-// como mock), aqui os números vêm de dados reais: total de decks/cards
-// do backend, e cards estudados/sequência de dias guardados localmente
-// pelo ProgressService (o backend ainda não tem uma rota de sessões).
+// Aba "Progresso" (equivale a Progress.tsx do frontend React).
+// Os números vêm de dados reais: total de decks/cards do backend, e cards
+// estudados/sequência de dias/XP guardados localmente pelo ProgressService.
 class ProgressScreen extends StatefulWidget {
   const ProgressScreen({super.key});
 
@@ -23,6 +22,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
   bool _loading = true;
   String? _error;
   List<Deck> _decks = [];
+  String _userName = 'Estudante';
   int _cardsStudied = 0;
   int _streak = 0;
   int _xp = 0;
@@ -41,13 +41,14 @@ class _ProgressScreenState extends State<ProgressScreen> {
       _error = null;
     });
     try {
-      final resumo = await ApiService.listarDecks();
-      final decks =
-          await Future.wait(resumo.map((d) => ApiService.buscarDeck(d.id)));
+      // GET /decks já traz total_cards de cada deck
+      final decks = await ApiService.listarDecks();
       final stats = await ProgressService.obterStats();
+      final prefs = await SharedPreferences.getInstance();
       if (!mounted) return;
       setState(() {
         _decks = decks;
+        _userName = prefs.getString('userName') ?? 'Estudante';
         _cardsStudied = stats.cardsStudied;
         _streak = stats.streak;
         _xp = stats.xp;
@@ -66,279 +67,226 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final totalCards = _decks.fold<int>(0, (sum, d) => sum + d.cards.length);
-    final maiorDeck = _decks.isEmpty
-        ? 0
-        : _decks.map((d) => d.cards.length).reduce((a, b) => a > b ? a : b);
-    final maxCardsPorDeck = maiorDeck == 0 ? 1 : maiorDeck;
-    final estudadosClamped = totalCards == 0 ? 0 : _cardsStudied.clamp(0, totalCards);
-    final progressoGeral = totalCards == 0 ? 0.0 : estudadosClamped / totalCards;
-
     return Scaffold(
-      drawer: const AppDrawer(),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: AppColors.fundo,
-        ),
-        child: SafeArea(
-          child: _loading
-              ? const Center(child: CircularProgressIndicator(color: Colors.white))
-              : _error != null
-                  ? ErrorRetry(message: _error!, onRetry: _carregar)
-                  : Column(
+      body: SafeArea(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+                ? ErrorRetry(message: _error!, onRetry: _carregar)
+                : _conteudo(),
+      ),
+    );
+  }
+
+  Widget _conteudo() {
+    final totalCards = _decks.fold<int>(0, (s, d) => s + d.totalCards);
+    final maiorDeck = _decks.isEmpty
+        ? 1
+        : _decks.map((d) => d.totalCards).reduce((a, b) => a > b ? a : b);
+    final estudados = totalCards == 0 ? 0 : _cardsStudied.clamp(0, totalCards);
+    final xpNoNivel = _xp % ProgressService.xpPorNivel;
+
+    return RefreshIndicator(
+      onRefresh: _carregar,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text('Progresso',
+                    style:
+                        TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+              ),
+              BotaoPerfil(nome: _userName),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Nível e XP: card de destaque em vermelho
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: AppColors.vermelho,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    // Header
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 4, 16, 8),
-                      child: Row(
-                        children: [
-                          Builder(
-                            builder: (context) => IconButton(
-                              icon: const Icon(Icons.menu, color: Colors.white),
-                              onPressed: () => Scaffold.of(context).openDrawer(),
-                            ),
-                          ),
-                          const Expanded(
-                            child: Text(
-                              'Progresso',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                          const SizedBox(width: 48),
-                        ],
-                      ),
+                    const Icon(Icons.star_rounded, color: Colors.white),
+                    const SizedBox(width: 6),
+                    Text('Nível $_nivel',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700)),
+                    const Spacer(),
+                    Text('$xpNoNivel/${ProgressService.xpPorNivel} XP',
+                        style: const TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.w500)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    value: xpNoNivel / ProgressService.xpPorNivel,
+                    minHeight: 10,
+                    color: Colors.white,
+                    backgroundColor: Colors.white.withValues(alpha: 0.3),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '+${ProgressService.xpPorAcerto} XP por acerto · faltam '
+                  '${ProgressService.xpPorNivel - xpNoNivel} XP pro nível ${_nivel + 1}',
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 1.7,
+            children: [
+              _StatCard(
+                icon: Icons.local_fire_department,
+                iconColor: AppColors.laranja,
+                label: 'Sequência',
+                value: _streak == 1 ? '1 dia' : '$_streak dias',
+              ),
+              _StatCard(
+                icon: Icons.trending_up,
+                iconColor: AppColors.verde,
+                label: 'Estudados',
+                value: '$estudados',
+              ),
+              _StatCard(
+                icon: Icons.style,
+                iconColor: const Color(0xFF2563EB),
+                label: 'Total de cards',
+                value: '$totalCards',
+              ),
+              _StatCard(
+                icon: Icons.folder_copy,
+                iconColor: AppColors.amarelo,
+                label: 'Decks',
+                value: '${_decks.length}',
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: cardDecoration(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text('Progresso geral',
+                          style: TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.w700)),
                     ),
+                    Text('$estudados de $totalCards cards',
+                        style: const TextStyle(color: AppColors.textoSuave)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    value: totalCards == 0 ? 0 : estudados / totalCards,
+                    minHeight: 10,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
 
-                    Expanded(
-                      child: ListView(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        children: [
-                          // Nível e XP (gamificação simples: 10 XP por
-                          // acerto, sobe de nível a cada 100 XP)
-                          Container(
-                            padding: const EdgeInsets.all(18),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.star,
-                                            color: Color(0xFFFACC15), size: 20),
-                                        const SizedBox(width: 6),
-                                        Text('Nível $_nivel',
-                                            style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w600)),
-                                      ],
-                                    ),
-                                    Text(
-                                        '${_xp % ProgressService.xpPorNivel}/${ProgressService.xpPorNivel} XP',
-                                        style: const TextStyle(
-                                            color: Colors.white70, fontSize: 12)),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(6),
-                                  child: LinearProgressIndicator(
-                                    value: (_xp % ProgressService.xpPorNivel) /
-                                        ProgressService.xpPorNivel,
-                                    minHeight: 10,
-                                    backgroundColor: Colors.white.withValues(alpha: 0.1),
-                                    valueColor: const AlwaysStoppedAnimation<Color>(
-                                        Color(0xFFFACC15)),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 20),
+          const Text('Conquistas',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 12),
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 1.35,
+            children: [
+              for (final c in conquistas)
+                _ConquistaCard(
+                  conquista: c,
+                  desbloqueada: c.desbloqueada(
+                    cardsStudied: _cardsStudied,
+                    streak: _streak,
+                    totalAcertos: _totalAcertos,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 24),
 
-                          // Grid de estatísticas
-                          GridView.count(
-                            crossAxisCount: 2,
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                            childAspectRatio: 1.6,
-                            children: [
-                              _StatCard(
-                                icon: Icons.local_fire_department,
-                                iconColor: const Color(0xFFFB923C),
-                                label: 'Sequência',
-                                value: '$_streak dias',
-                              ),
-                              _StatCard(
-                                icon: Icons.trending_up,
-                                iconColor: const Color(0xFF4ADE80),
-                                label: 'Estudados',
-                                value: '$estudadosClamped',
-                              ),
-                              _StatCard(
-                                icon: Icons.style,
-                                iconColor: const Color(0xFF60A5FA),
-                                label: 'Total de Cards',
-                                value: '$totalCards',
-                              ),
-                              _StatCard(
-                                icon: Icons.folder_copy,
-                                iconColor: const Color(0xFFFACC15),
-                                label: 'Decks',
-                                value: '${_decks.length}',
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-
-                          // Progresso geral
-                          Container(
-                            padding: const EdgeInsets.all(18),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    const Text('Progresso Geral',
-                                        style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600)),
-                                    Text('$estudadosClamped/$totalCards',
-                                        style: const TextStyle(color: Colors.white, fontSize: 13)),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(6),
-                                  child: LinearProgressIndicator(
-                                    value: progressoGeral,
-                                    minHeight: 10,
-                                    backgroundColor: Colors.white.withValues(alpha: 0.1),
-                                    valueColor: const AlwaysStoppedAnimation<Color>(
-                                        Color(0xFFFACC15)),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-
-                          const Text('Conquistas',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 12),
-                          GridView.count(
-                            crossAxisCount: 2,
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                            childAspectRatio: 1.5,
-                            children: [
-                              for (final c in conquistas)
-                                _ConquistaCard(
-                                  conquista: c,
-                                  desbloqueada: c.desbloqueada(
-                                    cardsStudied: _cardsStudied,
-                                    streak: _streak,
-                                    totalAcertos: _totalAcertos,
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 24),
-
-                          const Text('Cards por Deck',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 12),
-
-                          if (_decks.isEmpty)
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 24),
-                              child: Center(
-                                child: Text(
-                                  'Nenhum deck ainda.\nCrie um na tela Decks!',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(color: Colors.white60, fontSize: 14),
-                                ),
-                              ),
-                            )
-                          else
-                            for (final deck in _decks)
-                              Container(
-                                margin: const EdgeInsets.only(bottom: 10),
-                                padding: const EdgeInsets.all(14),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(
-                                      color: Colors.white.withValues(alpha: 0.2)),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(deck.nome,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.w600)),
-                                        ),
-                                        Text('${deck.cards.length} cards',
-                                            style: const TextStyle(
-                                                color: Colors.white60, fontSize: 12)),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(4),
-                                      child: LinearProgressIndicator(
-                                        value: deck.cards.length / maxCardsPorDeck,
-                                        minHeight: 6,
-                                        backgroundColor: Colors.white.withValues(alpha: 0.1),
-                                        valueColor: const AlwaysStoppedAnimation<Color>(
-                                            Color(0xFFDC2626)),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                          const SizedBox(height: 16),
-                        ],
+          const Text('Cards por deck',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 12),
+          if (_decks.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Text('Nenhum deck ainda.\nCrie um na aba Decks!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.textoSuave)),
+            )
+          else
+            for (final deck in _decks)
+              Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(14),
+                decoration: cardDecoration(raio: 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(deck.nome,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700)),
+                        ),
+                        Text(
+                            deck.totalCards == 1
+                                ? '1 card'
+                                : '${deck.totalCards} cards',
+                            style: const TextStyle(
+                                fontSize: 13, color: AppColors.textoSuave)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(999),
+                      child: LinearProgressIndicator(
+                        value: maiorDeck == 0 ? 0 : deck.totalCards / maiorDeck,
+                        minHeight: 6,
                       ),
                     ),
                   ],
                 ),
-        ),
+              ),
+        ],
       ),
     );
   }
@@ -353,40 +301,48 @@ class _ConquistaCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: desbloqueada ? 0.1 : 0.04),
+        color: desbloqueada ? AppColors.superficie : const Color(0xFFF1ECEA),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: desbloqueada
-              ? const Color(0xFFFACC15).withValues(alpha: 0.5)
-              : Colors.white.withValues(alpha: 0.1),
+          color: desbloqueada ? const Color(0xFFF2D27A) : AppColors.linha,
+          width: desbloqueada ? 1.5 : 1,
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            desbloqueada ? conquista.icon : Icons.lock_outline,
-            color: desbloqueada ? const Color(0xFFFACC15) : Colors.white38,
-            size: 22,
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: desbloqueada
+                  ? const Color(0xFFFDF3D7)
+                  : AppColors.linha,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              desbloqueada ? conquista.icon : Icons.lock_outline,
+              color: desbloqueada ? AppColors.amarelo : AppColors.textoSuave,
+              size: 18,
+            ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(conquista.titulo,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                  color: desbloqueada ? Colors.white : Colors.white38,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600)),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: desbloqueada ? AppColors.texto : AppColors.textoSuave)),
           const SizedBox(height: 2),
           Text(conquista.descricao,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                  color: desbloqueada ? Colors.white60 : Colors.white24,
-                  fontSize: 10)),
+              style: const TextStyle(
+                  fontSize: 12, color: AppColors.textoSuave, height: 1.3)),
         ],
       ),
     );
@@ -410,11 +366,7 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-      ),
+      decoration: cardDecoration(raio: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
@@ -425,15 +377,16 @@ class _StatCard extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(label,
-                    style: const TextStyle(color: Colors.white70, fontSize: 11),
+                    style: const TextStyle(
+                        color: AppColors.textoSuave, fontSize: 12),
                     overflow: TextOverflow.ellipsis),
               ),
             ],
           ),
           const SizedBox(height: 6),
           Text(value,
-              style: const TextStyle(
-                  color: Colors.white, fontSize: 22, fontWeight: FontWeight.w300)),
+              style:
+                  const TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
         ],
       ),
     );

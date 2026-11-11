@@ -33,6 +33,19 @@ class ProgressService {
         _kTotalAcertos, (prefs.getInt(_kTotalAcertos) ?? 0) + 1);
   }
 
+  // Último deck aberto — alimenta o atalho "Continuar estudando" da Home.
+  static const _kUltimoDeck = 'ultimoDeckId';
+
+  static Future<void> salvarUltimoDeck(int deckId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_kUltimoDeck, deckId);
+  }
+
+  static Future<int?> ultimoDeck() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_kUltimoDeck);
+  }
+
   static Future<void> _atualizarStreak(SharedPreferences prefs) async {
     final hoje = _formatarData(DateTime.now());
     final ultimaData = prefs.getString(_kLastStudyDate);
@@ -62,9 +75,19 @@ class ProgressService {
       })> obterStats() async {
     final prefs = await SharedPreferences.getInstance();
     final xp = prefs.getInt(_kXp) ?? 0;
+
+    // A sequência só vale se o último estudo foi hoje ou ontem. Antes, quem
+    // ficava dias sem estudar continuava vendo "3 dias seguidos" até
+    // estudar de novo.
+    final ultimaData = prefs.getString(_kLastStudyDate);
+    final hoje = _formatarData(DateTime.now());
+    final ontem =
+        _formatarData(DateTime.now().subtract(const Duration(days: 1)));
+    final streakValido = ultimaData == hoje || ultimaData == ontem;
+
     return (
       cardsStudied: prefs.getInt(_kCardsStudied) ?? 0,
-      streak: prefs.getInt(_kStreak) ?? 0,
+      streak: streakValido ? (prefs.getInt(_kStreak) ?? 0) : 0,
       xp: xp,
       nivel: (xp ~/ xpPorNivel) + 1,
       totalAcertos: prefs.getInt(_kTotalAcertos) ?? 0,

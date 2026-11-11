@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/deck.dart';
 import '../models/modo_estudo.dart';
 import '../services/api_service.dart';
-import '../widgets/app_drawer.dart';
-import '../widgets/error_retry.dart';
 import '../theme/app_theme.dart';
+import '../widgets/error_retry.dart';
+import '../widgets/menu_perfil.dart';
 
-// Tela de seleção de modo de estudo + acesso rápido aos decks
+// Aba "Estudar": escolha de modo de estudo + acesso rápido aos decks
 // (equivale a StudySession.tsx do frontend React).
 class StudySessionScreen extends StatefulWidget {
   const StudySessionScreen({super.key});
@@ -20,6 +21,7 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
   List<Deck> _decks = [];
   bool _loading = true;
   String? _error;
+  String _userName = 'Estudante';
 
   @override
   void initState() {
@@ -33,15 +35,14 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
       _error = null;
     });
     try {
-      final resumo = await ApiService.listarDecks();
-      // /decks não traz os cards de cada deck (só /decks/{id} traz), então
-      // buscamos o detalhe de cada um para saber a quantidade de cards.
-      final decks = await Future.wait(
-        resumo.map((d) => ApiService.buscarDeck(d.id)),
-      );
+      // GET /decks já devolve total_cards; antes era preciso buscar o
+      // detalhe de cada deck só pra contar os cards.
+      final decks = await ApiService.listarDecks();
+      final prefs = await SharedPreferences.getInstance();
       if (!mounted) return;
       setState(() {
         _decks = decks;
+        _userName = prefs.getString('userName') ?? 'Estudante';
         _loading = false;
       });
     } catch (e) {
@@ -56,286 +57,249 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
   // RF08 — tocar num modo abre a lista de decks; escolher um deck abre a
   // tela de estudo com as regras do modo (/study/{id}?modo=...).
   Future<void> _escolherDeck(ModoEstudo modo) async {
-    final comCards = _decks.where((d) => d.cards.isNotEmpty).toList();
+    final comCards = _decks.where((d) => d.totalCards > 0).toList();
     if (comCards.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Crie um deck com cards antes de estudar.'),
-        ),
+        const SnackBar(content: Text('Crie um deck com cards antes de estudar.')),
       );
       return;
     }
 
     final deck = await showModalBottomSheet<Deck>(
       context: context,
+      isScrollControlled: true,
       builder: (sheetContext) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            ListTile(
-              leading: Icon(modo.icone),
-              title: Text(
-                modo.titulo,
-                style: const TextStyle(fontWeight: FontWeight.bold),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(sheetContext).size.height * 0.7),
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.only(bottom: 12),
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                child: Row(
+                  children: [
+                    _IconeModo(modo: modo, tamanho: 40),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(modo.titulo,
+                            style: const TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.w700)),
+                        const Text('Escolha o deck',
+                            style: TextStyle(color: AppColors.textoSuave)),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              subtitle: const Text('Escolha o deck'),
-            ),
-            const Divider(height: 1),
-            for (final d in comCards)
-              ListTile(
-                title: Text(d.nome),
-                trailing: Text('${d.cards.length} cards'),
-                onTap: () => Navigator.of(sheetContext).pop(d),
-              ),
-          ],
+              const Divider(),
+              for (final d in comCards)
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+                  title: Text(d.nome,
+                      style: const TextStyle(fontWeight: FontWeight.w500)),
+                  subtitle: Text(
+                      d.totalCards == 1 ? '1 card' : '${d.totalCards} cards'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(sheetContext).pop(d),
+                ),
+            ],
+          ),
         ),
       ),
     );
     if (deck == null || !mounted) return;
-    context.go('/study/${deck.id}?modo=${modo.name}');
+    context.go('/study/${deck.id}?modo=${modo.name}&voltar=/study-session');
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const AppDrawer(),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: AppColors.fundo,
-        ),
-        child: SafeArea(
-          child: _loading
-              ? const Center(
-                  child: CircularProgressIndicator(color: Colors.white),
-                )
-              : _error != null
-              ? ErrorRetry(message: _error!, onRetry: _carregarDecks)
-              : Column(
-                  children: [
-                    // Header
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 4, 16, 0),
-                      child: Row(
+      body: SafeArea(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+                ? ErrorRetry(message: _error!, onRetry: _carregarDecks)
+                : ListView(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                    children: [
+                      Row(
                         children: [
-                          Builder(
-                            builder: (context) => IconButton(
-                              icon: const Icon(Icons.menu, color: Colors.white),
-                              onPressed: () =>
-                                  Scaffold.of(context).openDrawer(),
-                            ),
-                          ),
                           const Expanded(
-                            child: Text(
-                              'Sessão de Estudo',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(
-                            width: 48,
-                          ), // equilibra o ícone do menu
-                        ],
-                      ),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 4,
-                      ),
-                      child: Text(
-                        'Escolha seu modo de estudo',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white70, fontSize: 13),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    Expanded(
-                      child: ListView(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        children: [
-                          for (final mode in ModoEstudo.values)
-                            GestureDetector(
-                              onTap: () => _escolherDeck(mode),
-                              child: Container(
-                                margin: const EdgeInsets.only(bottom: 14),
-                                padding: const EdgeInsets.all(18),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: mode.cores,
-                                    begin: Alignment.centerLeft,
-                                    end: Alignment.centerRight,
-                                  ),
-                                  borderRadius: BorderRadius.circular(18),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      color: Colors.black38,
-                                      blurRadius: 10,
-                                      offset: Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 52,
-                                      height: 52,
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.2,
-                                        ),
-                                        borderRadius: BorderRadius.circular(14),
-                                      ),
-                                      child: Icon(
-                                        mode.icone,
-                                        color: Colors.white,
-                                        size: 26,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 14),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            mode.titulo,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            mode.descricao,
-                                            style: const TextStyle(
-                                              color: Colors.white70,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 6,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.2,
-                                        ),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        '${mode.duracao.inMinutes} min',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Acesso Rápido',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          _decks.isEmpty
-                              ? const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 24),
-                                  child: Center(
-                                    child: Text(
-                                      'Nenhum deck ainda.\nCrie um na tela Decks!',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        color: Colors.white60,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Estudar',
+                                    style: TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w700)),
+                                Text('Escolha um modo e depois o deck',
+                                    style: TextStyle(
                                         fontSize: 14,
-                                      ),
-                                    ),
-                                  ),
-                                )
-                              : GridView.builder(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  gridDelegate:
-                                      const SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: 2,
-                                        crossAxisSpacing: 12,
-                                        mainAxisSpacing: 12,
-                                        childAspectRatio: 1.3,
-                                      ),
-                                  itemCount: _decks.length,
-                                  itemBuilder: (context, index) {
-                                    final deck = _decks[index];
-                                    return GestureDetector(
-                                      onTap: () =>
-                                          context.go('/study/${deck.id}'),
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.1,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            14,
-                                          ),
-                                          border: Border.all(
-                                            color: Colors.white.withValues(
-                                              alpha: 0.2,
-                                            ),
-                                          ),
-                                        ),
-                                        padding: const EdgeInsets.all(14),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Text(
-                                              deck.nome,
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 15,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              '${deck.cards.length} cards',
-                                              style: const TextStyle(
-                                                color: Colors.white60,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                          const SizedBox(height: 16),
+                                        color: AppColors.textoSuave)),
+                              ],
+                            ),
+                          ),
+                          BotaoPerfil(nome: _userName),
                         ],
                       ),
-                    ),
+                      const SizedBox(height: 20),
+                      for (final modo in ModoEstudo.values) ...[
+                        _CardModo(modo: modo, onTap: () => _escolherDeck(modo)),
+                        const SizedBox(height: 12),
+                      ],
+                      const SizedBox(height: 12),
+                      const Text('Ou estude um deck livremente',
+                          style: TextStyle(
+                              fontSize: 17, fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 4),
+                      const Text('Sem cronômetro, na ordem dos cards',
+                          style: TextStyle(
+                              fontSize: 13, color: AppColors.textoSuave)),
+                      const SizedBox(height: 12),
+                      if (_decks.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 24),
+                          child: Text(
+                            'Nenhum deck ainda.\nCrie um na aba Decks!',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: AppColors.textoSuave),
+                          ),
+                        )
+                      else
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            mainAxisExtent: 84,
+                          ),
+                          itemCount: _decks.length,
+                          itemBuilder: (context, index) {
+                            final deck = _decks[index];
+                            return Material(
+                              color: AppColors.superficie,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                side: const BorderSide(color: AppColors.linha),
+                              ),
+                              clipBehavior: Clip.antiAlias,
+                              child: InkWell(
+                                onTap: () =>
+                                    context.go('/study/${deck.id}?voltar=/study-session'),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(14),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(deck.nome,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w700)),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                          deck.totalCards == 1
+                                              ? '1 card'
+                                              : '${deck.totalCards} cards',
+                                          style: const TextStyle(
+                                              fontSize: 13,
+                                              color: AppColors.textoSuave)),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                    ],
+                  ),
+      ),
+    );
+  }
+}
+
+class _IconeModo extends StatelessWidget {
+  final ModoEstudo modo;
+  final double tamanho;
+
+  const _IconeModo({required this.modo, this.tamanho = 52});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: tamanho,
+      height: tamanho,
+      decoration: BoxDecoration(
+        color: modo.corClara,
+        borderRadius: BorderRadius.circular(tamanho * 0.27),
+      ),
+      child: Icon(modo.icone, color: modo.cor, size: tamanho * 0.5),
+    );
+  }
+}
+
+class _CardModo extends StatelessWidget {
+  final ModoEstudo modo;
+  final VoidCallback onTap;
+
+  const _CardModo({required this.modo, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.superficie,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: const BorderSide(color: AppColors.linha),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              _IconeModo(modo: modo),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(modo.titulo,
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 2),
+                    Text(modo.descricao,
+                        style: const TextStyle(
+                            fontSize: 13, color: AppColors.textoSuave)),
                   ],
                 ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.fundo,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text('${modo.duracao.inMinutes} min',
+                    style: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w700)),
+              ),
+              const Icon(Icons.chevron_right, color: AppColors.textoFraco),
+            ],
+          ),
         ),
       ),
     );

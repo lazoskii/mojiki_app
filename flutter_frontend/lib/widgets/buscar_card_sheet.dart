@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/flashcard.dart';
+import '../theme/app_theme.dart';
 import '../utils/busca.dart';
 import 'campo_busca.dart';
 
@@ -60,10 +61,7 @@ class _BuscaCardsSheetState extends State<_BuscaCardsSheet> {
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 0, 20, 12),
               child: Text('Buscar card',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600)),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -81,7 +79,7 @@ class _BuscaCardsSheetState extends State<_BuscaCardsSheet> {
                       padding: EdgeInsets.all(32),
                       child: Text('Nenhum card encontrado',
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.white60)),
+                          style: TextStyle(color: AppColors.textoSuave)),
                     )
                   : ListView.builder(
                       shrinkWrap: true,
@@ -92,17 +90,20 @@ class _BuscaCardsSheetState extends State<_BuscaCardsSheet> {
                         return ListTile(
                           leading: CircleAvatar(
                             radius: 14,
-                            backgroundColor: Colors.white.withValues(alpha: 0.1),
+                            backgroundColor: AppColors.vermelhoClaro,
                             child: Text('${r.posicao + 1}',
                                 style: const TextStyle(
-                                    color: Colors.white70, fontSize: 12)),
+                                    color: AppColors.vermelhoEscuro,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700)),
                           ),
                           title: Text(r.card.pergunta,
                               maxLines: 1, overflow: TextOverflow.ellipsis),
                           subtitle: Text(r.card.resposta,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(color: Colors.white60)),
+                              style:
+                                  const TextStyle(color: AppColors.textoSuave)),
                           onTap: () => Navigator.of(context).pop(r.posicao),
                         );
                       },

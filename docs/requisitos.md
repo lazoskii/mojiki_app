@@ -53,6 +53,14 @@ Na tela inicial, o usuário deve conseguir filtrar a lista de decks digitando pa
 
 Na tela de estudo, o usuário deve conseguir buscar um card do deck pela pergunta **ou** pela resposta (mesmas regras de RF09) e ir direto para ele.
 
+## RF11 — Importação de decks
+
+O usuário deve conseguir criar um deck a partir de um arquivo: pacote do Anki (`.apkg`/`.colpkg`), planilha Excel (`.xlsx`), CSV/TSV/TXT ou PDF. Em planilhas e no Anki, a primeira coluna/campo vira a pergunta e a segunda a resposta. Em PDF e texto corrido, o sistema deve reconhecer sozinho a parte em japonês (hiragana, katakana, kanji) e a parte em português de cada linha — ou de uma linha em japonês seguida da tradução. Antes de gravar, o usuário revisa os cards encontrados (pode desmarcar, editar e inverter pergunta/resposta). Formatos não suportados e arquivos vazios devem ser recusados com mensagem clara.
+
+## RF12 — Foto → cards
+
+O usuário deve conseguir tirar uma foto (ou escolher da galeria) de uma lista de vocabulário e transformá-la em cards, num deck novo ou dentro do deck aberto. O texto é lido no próprio aparelho, sem instalar nada (Google ML Kit no Android/iOS, Tesseract.js no navegador); onde isso não existe (app de Windows), a foto vai para o backend, que usa o Tesseract se estiver instalado. O texto segue as mesmas regras de reconhecimento japonês/português e a mesma revisão do RF11. Se não for possível ler a foto, o sistema deve avisar em vez de falhar silenciosamente.
+
 ---
 
 Próximo passo: revisar esta lista com o grupo/professor.

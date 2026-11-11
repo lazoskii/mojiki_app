@@ -1,8 +1,19 @@
+#banco de dados (SQLite): abre a conexao, cria as tabelas e o deck de teste
+import os
 import sqlite3
 
+#caminho do banco: sempre ao lado deste arquivo (antes era relativo a pasta
+#de onde o servidor era iniciado -- rodando de outra pasta, o backend criava
+#um banco novo e vazio e parecia que os decks tinham sumido).
+#MOJIKI_DB permite apontar pra outro arquivo (usado nos testes).
+CAMINHO_BANCO = os.environ.get(
+    "MOJIKI_DB", os.path.join(os.path.dirname(os.path.abspath(__file__)), "flashcards.db")
+)
+
+
 def get_connection():
-    conn = sqlite3.connect("flashcards.db")
-    conn.row_factory = sqlite3.Row
+    conn = sqlite3.connect(CAMINHO_BANCO)
+    conn.row_factory = sqlite3.Row  #permite ler as colunas pelo nome: linha["nome"]
     return conn
 
 

@@ -1,3 +1,5 @@
+// Splash: primeira tela, com a marca. Depois de 2s decide pra onde ir:
+// Home (já entrou antes), Onboarding (primeira vez) ou Boas-vindas.
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -42,49 +44,58 @@ class _SplashScreenState extends State<SplashScreen> {
   Widget build(BuildContext context) {
     // Scaffold = estrutura base de uma tela (fundo, corpo, etc.)
     return Scaffold(
-      body: Container(
-        // BoxDecoration com gradient = equivale ao bg-gradient-to-br do Tailwind
-        decoration: const BoxDecoration(
-          gradient: AppColors.fundo,
-        ),
-        child: const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // mesma marca do menu lateral e do onboarding (文字記 = Mojiki)
-              Text(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // marca: círculo vermelho no papel claro (como a bandeira do
+            // Japão) com 文字記 (= Mojiki)
+            Container(
+              width: 132,
+              height: 132,
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                color: AppColors.vermelho,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                      color: Color(0x40D1283A),
+                      blurRadius: 30,
+                      offset: Offset(0, 12)),
+                ],
+              ),
+              child: const Text(
                 '文字記',
                 style: TextStyle(
-                  fontSize: 64,
+                  fontSize: 30,
                   color: Colors.white,
-                  fontWeight: FontWeight.w300,
-                  letterSpacing: 4,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 2,
                 ),
               ),
-              SizedBox(height: 12),
-              Text(
-                'MOJIKI',
-                style: TextStyle(
-                  fontSize: 18,
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 8,
-                ),
+            ),
+            const SizedBox(height: 28),
+            const Text(
+              'MOJIKI',
+              style: TextStyle(
+                fontSize: 18,
+                color: AppColors.texto,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 8,
               ),
-              SizedBox(height: 6),
-              Text(
-                'Aprenda japonês com flashcards',
-                style: TextStyle(fontSize: 14, color: Colors.white60),
-              ),
-              SizedBox(height: 48),
-              SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(
-                    color: Colors.white70, strokeWidth: 2.5),
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Aprenda japonês com flashcards',
+              style: TextStyle(fontSize: 14, color: AppColors.textoSuave),
+            ),
+            const SizedBox(height: 48),
+            const SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(strokeWidth: 2.5),
+            ),
+          ],
         ),
       ),
     );

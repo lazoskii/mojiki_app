@@ -1,3 +1,9 @@
+// Toda a comunicação do app com o backend (FastAPI) passa por aqui.
+// As telas nunca chamam o http direto: chamam ApiService.criarDeck(...) etc.
+// Cada método:
+//   1. monta a requisição (_enviar cuida de timeout e falta de internet);
+//   2. confere a resposta (_decodificar transforma erro em ApiException);
+//   3. converte o JSON no model do app (Deck, Flashcard...).
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -5,11 +11,23 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/deck.dart';
 import '../models/flashcard.dart';
+import '../models/importacao.dart';
 
-// Detecta automaticamente a plataforma:
+// Endereço do backend definido no build, pra versão publicada (GitHub
+// Pages) apontar pro backend online:
+//   flutter build web --dart-define=API_URL=https://meu-backend.onrender.com
+// Vazio (o normal no dia a dia) = usa o backend local, abaixo.
+const _apiUrlDoBuild = String.fromEnvironment('API_URL');
+
+// Sem API_URL, detecta automaticamente a plataforma:
 // - Android Emulator acessa o PC via 10.0.2.2
 // - Windows/Web/iOS usam 127.0.0.1 normalmente
 String get _baseUrl {
+  if (_apiUrlDoBuild.isNotEmpty) {
+    return _apiUrlDoBuild.endsWith('/')
+        ? _apiUrlDoBuild.substring(0, _apiUrlDoBuild.length - 1)
+        : _apiUrlDoBuild;
+  }
   if (kIsWeb) return 'http://127.0.0.1:8000';
   if (!kIsWeb && Platform.isAndroid) return 'http://10.0.2.2:8000';
   return 'http://127.0.0.1:8000';
@@ -44,11 +62,13 @@ class ApiService {
 
   // Executa a chamada HTTP tratando falhas de rede/timeout; quem chama
   // ainda decide o que fazer com a Response (checar status, decodificar).
+  // `limite`: 10s pras chamadas normais; a importação usa mais (OCR demora).
   static Future<http.Response> _enviar(
-    Future<http.Response> Function() requisicao,
-  ) async {
+    Future<http.Response> Function() requisicao, {
+    Duration limite = const Duration(seconds: 10),
+  }) async {
     try {
-      return await requisicao().timeout(const Duration(seconds: 10));
+      return await requisicao().timeout(limite);
     } on TimeoutException {
       throw const ApiException(_erroConexao);
     } on SocketException {
@@ -65,7 +85,7 @@ class ApiService {
       // Erros de validação do FastAPI (HTTPException) vêm como
       // {"detail": "..."} — mostra essa mensagem quando ela existe.
       try {
-        final corpo = jsonDecode(res.body);
+        final corpo = jsonDecode(_texto(res));
         if (corpo is Map && corpo['detail'] is String) {
           throw ApiException(corpo['detail']);
         }
@@ -74,11 +94,22 @@ class ApiService {
       }
       throw ApiException('Erro no servidor (${res.statusCode}). Tente novamente.');
     }
-    final corpo = jsonDecode(res.body);
+    final corpo = jsonDecode(_texto(res));
     if (corpo is Map && corpo.containsKey('erro')) {
       throw ApiException(corpo['erro'].toString());
     }
     return corpo;
+  }
+
+  // O FastAPI responde em UTF-8 mas sem dizer o charset no cabeçalho; o
+  // res.body poderia decodificar como latin-1 e embaralhar "água" e "水".
+  // Lê os bytes como UTF-8 (e cai no res.body se não for UTF-8 válido).
+  static String _texto(http.Response res) {
+    try {
+      return utf8.decode(res.bodyBytes);
+    } on FormatException {
+      return res.body;
+    }
   }
 
   // ========================
@@ -163,6 +194,81 @@ class ApiService {
   static Future<void> deletarFlashcard(int id) async {
     final res = await _enviar(() => client.delete(Uri.parse('$_baseUrl/flashcards/$id')));
     _decodificar(res);
+  }
+
+  // ========================
+  // IMPORTAÇÃO (RF11 arquivo / RF12 foto)
+  // ========================
+
+  // Manda o arquivo (Anki, Excel, CSV, PDF ou foto) pro backend e recebe a
+  // prévia dos cards encontrados. Nada é gravado ainda.
+  static Future<PreviaImportacao> previaImportacao({
+    required Uint8List bytes,
+    required String nomeArquivo,
+  }) async {
+    final res = await _enviar(
+      () async {
+        final req = http.MultipartRequest(
+            'POST', Uri.parse('$_baseUrl/importar/previa'))
+          ..files.add(http.MultipartFile.fromBytes('arquivo', bytes,
+              filename: nomeArquivo));
+        return http.Response.fromStream(await client.send(req));
+      },
+      limite: const Duration(seconds: 90),
+    );
+    return PreviaImportacao.fromJson(_decodificar(res));
+  }
+
+  // RF12: prévia a partir do TEXTO de uma foto já lida no aparelho
+  // (ML Kit / Tesseract.js); o backend só separa japonês e português.
+  static Future<PreviaImportacao> previaDeTexto(String texto) async {
+    final res = await _enviar(
+      () => client.post(
+        Uri.parse('$_baseUrl/importar/texto'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'texto': texto}),
+      ),
+      limite: const Duration(seconds: 30),
+    );
+    return PreviaImportacao.fromJson(_decodificar(res));
+  }
+
+  // Cria um deck novo já com os cards revisados na prévia.
+  static Future<Deck> importarDeck({
+    required String nome,
+    required List<CardImportado> cards,
+  }) async {
+    final res = await _enviar(
+      () => client.post(
+        Uri.parse('$_baseUrl/decks/importar'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'nome': nome,
+          'user_id': usuarioFixoId,
+          'cards': cards.map((c) => c.toJson()).toList(),
+        }),
+      ),
+      limite: const Duration(seconds: 30),
+    );
+    return Deck.fromJson(_decodificar(res));
+  }
+
+  // Adiciona os cards revisados num deck que já existe (foto → cards
+  // de dentro da tela de estudo).
+  static Future<List<Flashcard>> adicionarCards({
+    required int deckId,
+    required List<CardImportado> cards,
+  }) async {
+    final res = await _enviar(
+      () => client.post(
+        Uri.parse('$_baseUrl/decks/$deckId/flashcards/lote'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'cards': cards.map((c) => c.toJson()).toList()}),
+      ),
+      limite: const Duration(seconds: 30),
+    );
+    final List data = _decodificar(res);
+    return data.map((c) => Flashcard.fromJson(c)).toList();
   }
 
   // ========================

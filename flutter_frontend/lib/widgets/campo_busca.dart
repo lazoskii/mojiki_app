@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 // Campo de busca (Bloco 7) usado na Home (decks) e na busca de cards.
-// Mostra um "x" pra limpar quando tem texto.
+// Mostra um "x" pra limpar quando tem texto. Segue o padrão das caixas de
+// texto (52 px, borda bege, vermelha no foco), só que sem rótulo em cima:
+// a lupa já diz o que o campo faz.
 class CampoBusca extends StatelessWidget {
   final TextEditingController controller;
   final String dica;
@@ -22,32 +25,21 @@ class CampoBusca extends StatelessWidget {
       controller: controller,
       autofocus: autofocus,
       onChanged: onChanged,
-      style: const TextStyle(color: Colors.white),
+      style: const TextStyle(fontSize: 16, color: AppColors.texto),
       textInputAction: TextInputAction.search,
       decoration: InputDecoration(
         hintText: dica,
-        prefixIcon: const Icon(Icons.search, color: Colors.white54, size: 20),
+        prefixIcon: const Icon(Icons.search, size: 22),
         suffixIcon: controller.text.isEmpty
             ? null
             : IconButton(
                 tooltip: 'Limpar busca',
-                icon: const Icon(Icons.close, color: Colors.white54, size: 18),
+                icon: const Icon(Icons.close, size: 20),
                 onPressed: () {
                   controller.clear();
                   onChanged('');
                 },
               ),
-        fillColor: Colors.white.withValues(alpha: 0.08),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       ),
     );
   }

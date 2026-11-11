@@ -1,3 +1,5 @@
+// Flashcard = um card (pergunta na frente, resposta no verso) de um deck.
+// fromJson converte o JSON da API; toJson monta o corpo do POST/PUT.
 class Flashcard {
   final int id;
   final String pergunta;

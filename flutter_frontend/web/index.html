@@ -41,6 +41,10 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
+  <!-- RF12 (foto → cards): OCR no próprio navegador, sem instalar nada.
+       Tesseract.js (WebAssembly) + o ajudante web/ocr.js. -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+  <script src="ocr.js"></script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

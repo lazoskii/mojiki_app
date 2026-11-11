@@ -42,3 +42,9 @@ android {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // RF12 (foto → cards): modelo do ML Kit que lê japonês (kanji/kana) e
+    // também letras latinas (português). O plugin só traz o latino por padrão.
+    implementation("com.google.mlkit:text-recognition-japanese:16.0.1")
+}
