@@ -11,104 +11,20 @@ Este diagnóstico parte disso: para cada problema encontrado, definimos o requis
 - **CRUD real de decks e flashcards**, persistido em SQLite — não é mais dado mockado.
 - **Navegação completa** entre as 7 telas via go_router, incluindo onboarding só na primeira vez.
 - **Progresso local** — cards estudados e sequência de dias já são acompanhados de verdade.
-- **Barra de navegação inferior** (Decks · Estudar · Progresso) — substituiu o menu lateral.
-
-### Entregue durante o cronograma (Blocos 1 a 7)
-
-- **Autoavaliação** — botões Acertei / Errei gravados na `StudySession`, com tela de resultado (% de acerto) no fim da sessão.
-- **Robustez** — toda chamada de API trata falha de rede (tela de erro com "Tentar novamente") e excluir deck/flashcard pede confirmação.
-- **Validação** — deck sem nome e flashcard sem pergunta/resposta são recusados no app e no backend (erro 400).
-- **Edição** — editar pergunta/resposta de um flashcard e renomear deck.
-- **Modos de estudo** — Sessão Rápida, Prática Diária e Sessão Intensiva com cronômetro, cards embaralhados e o modo gravado na sessão.
-- **Busca** — de decks na Home e de cards dentro de um deck (ignora maiúsculas e acentos).
-- **Extras** — XP, nível e conquistas na tela de Progresso; "Enviar feedback" no menu de perfil; atalho "Continuar estudando" na Home.
-- **Importação de decks** — Anki (`.apkg`), Excel (`.xlsx`), CSV/TXT e PDF. No PDF (e em texto solto) o app reconhece sozinho o que é japonês e o que é português em cada linha. Antes de gravar, uma tela de revisão deixa desmarcar, editar e inverter pergunta/resposta.
-- **Foto → cards** — tirar foto ou escolher da galeria (lista de vocabulário, caderno, livro); o texto é lido **no próprio aparelho** (Google ML Kit no Android/iOS, Tesseract.js no navegador — sem instalar nada no PC) e vira cards, num deck novo ou dentro do deck aberto.
-- **Visual** — paleta "Washi" (fundo papel claro, cards brancos, vermelho `#D1283A` só nos destaques) e caixas de texto padronizadas (rótulo em cima, erro com ícone). Tudo centralizado em `flutter_frontend/lib/theme/app_theme.dart` e `flutter_frontend/lib/widgets/app_campo.dart`.
-
-## Como rodar
-
-**Backend** (FastAPI + SQLite, porta 8000):
-
-```bash
-cd backend
-python -m venv venv                         # só na primeira vez
-venv\Scripts\python -m pip install -r requirements.txt
-venv\Scripts\uvicorn main:app --reload
-```
-
-As bibliotecas ficam no ambiente virtual `backend/venv` (não vai pro git). Rodando o `uvicorn` "solto", o Windows usa o Python global, que não tem as bibliotecas do projeto — por isso o caminho `venv\Scripts\` nos comandos.
-
-O banco `flashcards.db` (sempre na pasta `backend/`) e o deck de teste são criados automaticamente na primeira execução.
-
-**Leitura de fotos (OCR).** A opção "foto → cards" lê o texto **no próprio aparelho**, sem instalar nada:
-
-- **Navegador (Edge/Chrome):** [Tesseract.js](https://github.com/naptha/tesseract.js) (`web/ocr.js`). Na primeira foto baixa o pacote de japonês e português (alguns MB, precisa de internet nessa vez); depois fica em cache.
-- **Android / iOS:** Google ML Kit (`google_mlkit_text_recognition`), offline. O Android já está configurado (`android/app/build.gradle.kts`). No iOS, ao gerar o `ios/Podfile` (primeiro `flutter build ios`), use `platform :ios, '15.5'` e adicione `pod 'GoogleMLKit/TextRecognitionJapanese', '~> 9.0.0'`.
-- **App de Windows:** não tem OCR no aparelho; a foto vai pro backend, que usa o Tesseract instalado no PC (opcional, abaixo). PDFs escaneados também usam esse Tesseract do backend.
-
-**Tesseract no backend (opcional — só para o app de Windows e PDFs escaneados):**
-
-1. Instale no Windows: `winget install UB-Mannheim.TesseractOCR` (ou baixe o [instalador](https://github.com/UB-Mannheim/tesseract/wiki)).
-2. No instalador, em *Additional language data*, marque **Japanese** e **Portuguese**. (Se já instalou sem eles, baixe `jpn.traineddata` e `por.traineddata` de [tessdata](https://github.com/tesseract-ocr/tessdata) e copie para `C:\Program Files\Tesseract-OCR\tessdata`.)
-3. O backend acha o Tesseract em `C:\Program Files\Tesseract-OCR` sozinho; se estiver em outro lugar, defina a variável `TESSERACT_CMD` com o caminho do `tesseract.exe`.
-
-**App** (Flutter):
-
-```bash
-cd flutter_frontend
-flutter pub get
-flutter run -d chrome   # ou -d edge, ou um emulador Android
-```
-
-**Testes automatizados** (não precisam do backend rodando):
-
-```bash
-cd flutter_frontend
-flutter test                      # app: telas, edição, busca, importação
-
-cd backend
-venv\Scripts\python -m unittest -v   # backend: leitura de Anki/Excel/CSV/texto, reconhecimento japonês/português, rotas
-```
-
-Os testes do backend usam um banco temporário — não mexem no `flashcards.db`.
-
-> Dica: o modo debug do Flutter no navegador é bem mais lento que o app final. Pra sentir a fluidez real (animações, toques), rode com `flutter run -d edge --release`.
-
-## Publicar o app web (GitHub Pages)
-
-O app web é publicado sozinho pelo workflow `.github/workflows/pages.yml` a cada push na `main` que mexa no `flutter_frontend` (ele roda os testes, faz o build e publica).
-
-1. **Uma vez só:** no GitHub, *Settings → Pages → Build and deployment → Source:* **GitHub Actions**.
-2. Faça o push (ou *Actions → Publicar app web → Run workflow*).
-3. O site fica em **https://lazoskii.github.io/mojiki_app/**.
-
-**Backend:** o GitHub Pages só entrega arquivos prontos — não roda o backend (Python). Ele fica no **Render**, configurado pelo `render.yaml` da raiz:
-
-1. Entre em [render.com](https://render.com) com a conta do GitHub.
-2. *New → Blueprint* → escolha o repositório `mojiki_app` → *Apply*. O Render instala e sobe a API (plano grátis).
-3. Copie o endereço do serviço `mojiki-api` (algo como `https://mojiki-api.onrender.com`) e confira abrindo `…/decks` no navegador.
-4. No GitHub: *Settings → Secrets and variables → Actions → Variables → New repository variable*: nome **`API_URL`**, valor = o endereço do passo 3 (sem `/` no fim).
-5. *Actions → Publicar app web → Run workflow*. Pronto: o site do Pages passa a usar o backend do Render.
-
-Limites do plano grátis do Render: o servidor **dorme** depois de ~15 min sem uso (o primeiro acesso depois disso leva ~30-50 s — o app espera até 70 s) e o **banco volta ao estado inicial** (só o deck de teste) quando o servidor reinicia ou é publicado de novo. Como ainda não há login, todo mundo que usa o site compartilha os mesmos decks.
-
-Sem a variável `API_URL`, o site procura o backend em `http://127.0.0.1:8000` (o computador de quem abre). Pra testar um build local apontando pra outro backend: `flutter build web --dart-define=API_URL=https://...`
+- **Menu lateral** unificando o acesso a Decks, Sessão de Estudo e Progresso.
 
 ## Pontos de melhoria
 
-Diagnóstico feito no início do projeto (25/08). A coluna **Situação** mostra como cada ponto ficou na entrega.
-
-| Frente | Item | Descrição | Situação |
-|---|---|---|---|
-| Robustez | Tela trava no "carregando" | Se a API cair ou a rede falhar, a tela fica presa no spinner — nenhuma chamada tem tratamento de erro. | Resolvido (Bloco 4) |
-| Robustez | Exclusão sem confirmação | Apagar um deck ou flashcard é instantâneo, sem diálogo de confirmação nem forma de desfazer. | Resolvido (Bloco 4) |
-| CRUD incompleto | Editar flashcard não existe | O backend já tem `PUT /flashcards/{id}` pronto, mas o app nunca chama — dá pra criar e excluir, não corrigir. | Resolvido (Bloco 5) |
-| CRUD incompleto | Deck não tem edição | Não existe endpoint de renomear deck — só criar e excluir. | Resolvido (Bloco 5) |
-| Funcionalidade morta | Modos de estudo são só visual | Os cards de Sessão Rápida / Diária / Intensiva não fazem nada ao tocar — puramente decorativos. | Resolvido (Bloco 6) |
-| Funcionalidade morta | StudySession nunca é usada | O model com `acertos`/`erros` existe em `models.py`, mas nenhuma rota grava ou lê esses dados. | Resolvido (Blocos 1 e 6) |
-| Outras menores | Sem busca | Não há como filtrar decks ou cards por nome quando a lista cresce. | Resolvido (Bloco 7) |
-| Outras menores | user_id sempre fixo | Todo deck é criado com `user_id = 1` — não existem usuários reais ainda. | Backlog (ver abaixo) |
+| Frente | Item | Descrição |
+|---|---|---|
+| Robustez | Tela trava no "carregando" | Se a API cair ou a rede falhar, a tela fica presa no spinner — nenhuma chamada tem tratamento de erro. |
+| Robustez | Exclusão sem confirmação | Apagar um deck ou flashcard é instantâneo, sem diálogo de confirmação nem forma de desfazer. |
+| CRUD incompleto | Editar flashcard não existe | O backend já tem `PUT /flashcards/{id}` pronto, mas o app nunca chama — dá pra criar e excluir, não corrigir. |
+| CRUD incompleto | Deck não tem edição | Não existe endpoint de renomear deck — só criar e excluir. |
+| Funcionalidade morta | Modos de estudo são só visual | Os cards de Sessão Rápida / Diária / Intensiva não fazem nada ao tocar — puramente decorativos. |
+| Funcionalidade morta | StudySession nunca é usada | O model com `acertos`/`erros` existe em `models.py`, mas nenhuma rota grava ou lê esses dados. |
+| Outras menores | Sem busca | Não há como filtrar decks ou cards por nome quando a lista cresce. |
+| Outras menores | user_id sempre fixo | Todo deck é criado com `user_id = 1` — não existem usuários reais ainda. |
 
 ## Quebrando em tasks
 
@@ -147,7 +63,7 @@ A numeração dos blocos segue a ordem de prioridade da apresentação; os bloco
 - [x] Ligar a tela de edição de flashcard ao endpoint `PUT /flashcards/{id}` já existente — **M**
 - [x] Criar endpoint de edição (renomear) de deck no backend — **M**
 - [x] Adicionar opção de editar deck na interface — **P**
-- [x] Testar a edição de flashcard e de deck — **P** → testes automatizados em [flutter_frontend/test/edicao_e_busca_test.dart](flutter_frontend/test/edicao_e_busca_test.dart)
+- [ ] Testar a edição de flashcard e de deck — **P**
 
 ### Bloco 6 — Funcionalidade morta (modos de estudo)
 
@@ -157,9 +73,9 @@ A numeração dos blocos segue a ordem de prioridade da apresentação; os bloco
 
 ### Bloco 7 — Outras melhorias menores
 
-- [x] Adicionar campo de busca para decks — **M**
-- [x] Adicionar busca de cards dentro de um deck — **M**
-- [x] Registrar o `user_id` fixo como pendência de backlog, para quando existir autenticação real — **P** → seção [Backlog](#backlog)
+- [ ] Adicionar campo de busca para decks — **M**
+- [ ] Adicionar busca de cards dentro de um deck — **M**
+- [ ] Registrar o `user_id` fixo como pendência de backlog, para quando existir autenticação real — **P**
 
 ## Tamanho das tasks
 
@@ -191,19 +107,9 @@ Estimativa a partir de hoje (25/08) até a entrega em 17/11 — 12 semanas ao to
 
 Essa distribuição é uma estimativa e pode ser ajustada durante o andamento — os blocos 1 a 3 são prioridade e não devem atrasar; os blocos 6 e 7 têm mais folga para absorver imprevistos.
 
-## Backlog
-
-Pendências registradas para depois da entrega:
-
-- **`user_id` fixo** — o app ainda não tem login, então todo deck e toda sessão de estudo são gravados com `user_id = 1`. No app esse valor está centralizado na constante `usuarioFixoId` (`flutter_frontend/lib/services/api_service.dart`); quando existir autenticação real, basta trocar a constante pelo id do usuário logado e fazer o backend filtrar `GET /decks` por usuário.
-- **Progresso só no aparelho** — XP, nível, conquistas e sequência de dias ficam no `SharedPreferences` (local). Com usuários reais, faz sentido levar isso para o backend.
-- **Importação com IA** — o OCR do Tesseract erra com letra de mão e foto torta; um modelo de visão (ex.: Claude) leria bem melhor, mas exige chave de API e internet. Ficou de fora por escolha (offline e sem custo).
-
 ## Fora do escopo neste momento
 
 - Autenticação real de usuários (login, múltiplas contas).
 - Notificações ou lembretes automáticos.
 - Sincronização entre dispositivos.
-- Repetição espaçada (agendar quando cada card volta, como no Anki).
-
-Sobre testes: os casos de teste do Bloco 3 ([docs/casos_de_teste.md](docs/casos_de_teste.md)) são o roteiro manual. Além deles, `flutter_frontend/test/` tem testes automatizados de widget (autoavaliação, edição, validação, busca e importação) e `backend/test_backend.py` testa a leitura dos arquivos e as rotas.
+- Testes automatizados (por enquanto os testes são executados manualmente, a partir dos casos de teste do Bloco 3).
