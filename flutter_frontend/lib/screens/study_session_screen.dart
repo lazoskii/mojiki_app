@@ -5,6 +5,7 @@ import '../models/modo_estudo.dart';
 import '../services/api_service.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/error_retry.dart';
+import '../theme/app_theme.dart';
 
 // Tela de seleção de modo de estudo + acesso rápido aos decks
 // (equivale a StudySession.tsx do frontend React).
@@ -100,11 +101,7 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
       drawer: const AppDrawer(),
       body: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFDC2626), Color(0xFF991B1B), Colors.black],
-          ),
+          gradient: AppColors.fundo,
         ),
         child: SafeArea(
           child: _loading

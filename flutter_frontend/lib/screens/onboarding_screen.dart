@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../theme/app_theme.dart';
 
 // Tela de introdução mostrada só na primeira vez que o app abre
 // (equivale a Onboarding.tsx do frontend React).
@@ -54,11 +55,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFDC2626), Color(0xFF991B1B), Colors.black],
-          ),
+          gradient: AppColors.fundo,
         ),
         child: SafeArea(
           child: Padding(

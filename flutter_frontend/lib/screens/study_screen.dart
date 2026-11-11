@@ -8,9 +8,11 @@ import '../services/api_service.dart';
 import '../services/progress_service.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/confirm_dialog.dart';
+import '../widgets/buscar_card_sheet.dart';
 import '../widgets/edit_flashcard_dialog.dart';
 import '../widgets/error_retry.dart';
 import '../widgets/session_results_dialog.dart';
+import '../theme/app_theme.dart';
 
 class StudyScreen extends StatefulWidget {
   final int deckId;
@@ -140,7 +142,7 @@ class _StudyScreenState extends State<StudyScreen>
   Future<void> _iniciarSessao() async {
     try {
       final sessao = await ApiService.iniciarSessao(
-        userId: 1,
+        userId: usuarioFixoId, // pendência: ver api_service.dart
         deckId: widget.deckId,
         modo: widget.modo?.name,
       );
@@ -275,7 +277,11 @@ class _StudyScreenState extends State<StudyScreen>
   Future<void> _criarFlashcard() async {
     final p = _perguntaController.text.trim();
     final r = _respostaController.text.trim();
-    if (p.isEmpty || r.isEmpty) return;
+    if (p.isEmpty || r.isEmpty) {
+      // RF02: pergunta e resposta são obrigatórias
+      _mostrarErro('Preencha a pergunta e a resposta.');
+      return;
+    }
 
     try {
       final novo = await ApiService.criarFlashcard(
@@ -298,6 +304,17 @@ class _StudyScreenState extends State<StudyScreen>
       if (!mounted) return;
       _mostrarErro(e);
     }
+  }
+
+  // Bloco 7 — busca um card do deck e pula direto pra ele (desvirado).
+  Future<void> _buscarCard() async {
+    final posicao = await mostrarBuscaCards(context, _deck!.cards);
+    if (posicao == null || !mounted) return;
+    setState(() {
+      _currentIndex = posicao;
+      _isFlipped = false;
+    });
+    _flipController.reset();
   }
 
   // RF06 — edita o card atual; mantém a posição e o lado virado do card.
@@ -355,11 +372,7 @@ class _StudyScreenState extends State<StudyScreen>
       drawer: const AppDrawer(),
       body: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFDC2626), Color(0xFF991B1B), Colors.black],
-          ),
+          gradient: AppColors.fundo,
         ),
         child: SafeArea(
           child: _loading
@@ -428,7 +441,14 @@ class _StudyScreenState extends State<StudyScreen>
                                 ],
                               ),
                             ),
+                          if (_deck!.cards.isNotEmpty)
+                            IconButton(
+                              tooltip: 'Buscar card',
+                              icon: const Icon(Icons.search, color: Colors.white),
+                              onPressed: _buscarCard,
+                            ),
                           IconButton(
+                            tooltip: 'Recomeçar',
                             icon: const Icon(Icons.refresh, color: Colors.white),
                             onPressed: _resetar,
                           ),
@@ -557,16 +577,25 @@ class _StudyScreenState extends State<StudyScreen>
                                           alignment: Alignment.center,
                                           child: Container(
                                             width: double.infinity,
-                                            height: 180,
+                                            height: 210,
                                             margin: const EdgeInsets.symmetric(
                                                 horizontal: 16),
+                                            padding: const EdgeInsets.all(20),
                                             decoration: BoxDecoration(
                                               color: showBack
                                                   ? Colors.white
-                                              // ignore: deprecated_member_use
-                                                  : Colors.white.withOpacity(0.15),
+                                                  : Colors.white.withValues(alpha: 0.15),
                                               borderRadius:
-                                                  BorderRadius.circular(20),
+                                                  BorderRadius.circular(24),
+                                              border: Border.all(
+                                                  color: Colors.white.withValues(
+                                                      alpha: showBack ? 0 : 0.25)),
+                                              boxShadow: const [
+                                                BoxShadow(
+                                                    color: Colors.black38,
+                                                    blurRadius: 16,
+                                                    offset: Offset(0, 6)),
+                                              ],
                                             ),
                                             child: Center(
                                               child: Transform(
@@ -656,8 +685,10 @@ class _StudyScreenState extends State<StudyScreen>
                                       ),
                                     ),
                                   const SizedBox(height: 12),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
+                                  // Wrap: se não couber lado a lado (letra
+                                  // grande), o segundo botão desce de linha
+                                  Wrap(
+                                    alignment: WrapAlignment.center,
                                     children: [
                                       TextButton.icon(
                                         onPressed: _editarFlashcard,

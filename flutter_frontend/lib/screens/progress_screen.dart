@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../services/progress_service.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/error_retry.dart';
+import '../theme/app_theme.dart';
 
 // Tela de progresso do usuário (equivale a Progress.tsx do frontend React).
 // Diferente da versão React (que usava números aleatórios de "precisão"
@@ -77,11 +78,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
       drawer: const AppDrawer(),
       body: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFDC2626), Color(0xFF991B1B), Colors.black],
-          ),
+          gradient: AppColors.fundo,
         ),
         child: SafeArea(
           child: _loading

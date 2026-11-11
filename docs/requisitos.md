@@ -2,7 +2,7 @@
 
 Semana 3 do cronograma (ver [README.md](../README.md), Bloco 2). Os requisitos abaixo foram levantados a partir do diagnóstico já feito no README ("Pontos de melhoria") e de leitura direta do código atual (`backend/main.py`, `flutter_frontend/lib/`). Cada requisito vira um caso de teste em [casos_de_teste.md](casos_de_teste.md).
 
-Não entram aqui os itens já resolvidos (RF de acerto/erro, Bloco 1) nem os itens fora de escopo do momento (busca, `user_id` fixo — ver README, ficam como backlog).
+Não entram aqui os itens já resolvidos (RF de acerto/erro, Bloco 1). A busca (RF09 e RF10) foi acrescentada no Bloco 7; o `user_id` fixo ficou registrado como backlog no README.
 
 ## RF01 — Validação de nome do deck
 
@@ -45,6 +45,14 @@ Ao tocar em um dos cards de modo de estudo ("Sessão Rápida", "Prática Diária
 | Sessão Intensiva | 30 min | todos | card marcado como "Errei" volta pro fim da fila |
 
 
+## RF09 — Busca de decks
+
+Na tela inicial, o usuário deve conseguir filtrar a lista de decks digitando parte do nome. A busca não diferencia maiúsculas/minúsculas nem acentos ("matematica" encontra "Matemática") e, quando nada combina, a tela mostra "Nenhum deck encontrado".
+
+## RF10 — Busca de cards dentro de um deck
+
+Na tela de estudo, o usuário deve conseguir buscar um card do deck pela pergunta **ou** pela resposta (mesmas regras de RF09) e ir direto para ele.
+
 ---
 
-Próximo passo: revisar esta lista com o grupo/professor antes de seguir para os casos de teste.
+Próximo passo: revisar esta lista com o grupo/professor.

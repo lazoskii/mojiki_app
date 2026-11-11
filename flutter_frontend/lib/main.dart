@@ -8,6 +8,7 @@ import 'screens/home_screen.dart';
 import 'screens/study_screen.dart';
 import 'screens/study_session_screen.dart';
 import 'screens/progress_screen.dart';
+import 'theme/app_theme.dart';
 
 // Equivale ao createBrowserRouter do React Router
 final _router = GoRouter(
@@ -45,9 +46,7 @@ class MojikiApp extends StatelessWidget {
     return MaterialApp.router(
       title: 'Mojiki',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFDC2626)),
-      ),
+      theme: criarTemaMojiki(), // ver theme/app_theme.dart
       routerConfig: _router,
     );
   }

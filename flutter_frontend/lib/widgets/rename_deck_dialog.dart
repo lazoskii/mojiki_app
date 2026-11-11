@@ -4,68 +4,88 @@ import '../services/api_service.dart';
 
 // Diálogo de renomear deck (Bloco 5 / RF07). Já salva via PUT /decks/{id}
 // e devolve o deck atualizado, ou null se cancelar.
-Future<Deck?> mostrarRenomearDeck(BuildContext context, Deck deck) async {
-  final controller = TextEditingController(text: deck.nome);
-  final formKey = GlobalKey<FormState>();
-  var salvando = false;
-
-  final atualizado = await showDialog<Deck>(
+Future<Deck?> mostrarRenomearDeck(BuildContext context, Deck deck) {
+  return showDialog<Deck>(
     context: context,
-    builder: (dialogContext) => StatefulBuilder(
-      builder: (dialogContext, setState) => AlertDialog(
-        title: const Text('Renomear deck'),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: controller,
-            autofocus: true,
-            decoration: const InputDecoration(
-              labelText: 'Nome do deck',
-              border: OutlineInputBorder(),
-            ),
-            validator: (value) =>
-                (value == null || value.trim().isEmpty) ? 'Campo obrigatório' : null,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: salvando ? null : () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: salvando
-                ? null
-                : () async {
-                    if (!formKey.currentState!.validate()) return;
-                    setState(() => salvando = true);
-                    try {
-                      final novo = await ApiService.renomearDeck(
-                        deck.id,
-                        controller.text.trim(),
-                      );
-                      if (!dialogContext.mounted) return;
-                      Navigator.of(dialogContext).pop(novo);
-                    } catch (e) {
-                      setState(() => salvando = false);
-                      if (!dialogContext.mounted) return;
-                      ScaffoldMessenger.of(dialogContext).showSnackBar(
-                        SnackBar(content: Text(e.toString())),
-                      );
-                    }
-                  },
-            child: salvando
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Salvar'),
-          ),
-        ],
-      ),
-    ),
+    builder: (_) => _RenomearDeckDialog(deck: deck),
   );
+}
 
-  controller.dispose();
-  return atualizado;
+// StatefulWidget pra que o próprio diálogo crie e descarte o controller do
+// campo: descartar logo depois do showDialog retornar quebrava a animação
+// de fechar ("TextEditingController was used after being disposed").
+class _RenomearDeckDialog extends StatefulWidget {
+  final Deck deck;
+  const _RenomearDeckDialog({required this.deck});
+
+  @override
+  State<_RenomearDeckDialog> createState() => _RenomearDeckDialogState();
+}
+
+class _RenomearDeckDialogState extends State<_RenomearDeckDialog> {
+  late final _controller = TextEditingController(text: widget.deck.nome);
+  final _formKey = GlobalKey<FormState>();
+  var _salvando = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _salvar() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _salvando = true);
+    try {
+      final novo = await ApiService.renomearDeck(
+        widget.deck.id,
+        _controller.text.trim(),
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(novo);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _salvando = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Renomear deck'),
+      content: Form(
+        key: _formKey,
+        child: TextFormField(
+          controller: _controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Nome do deck',
+            border: OutlineInputBorder(),
+          ),
+          validator: (value) =>
+              (value == null || value.trim().isEmpty) ? 'Campo obrigatório' : null,
+          onFieldSubmitted: (_) => _salvar(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _salvando ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _salvando ? null : _salvar,
+          child: _salvando
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Salvar'),
+        ),
+      ],
+    );
+  }
 }

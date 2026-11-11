@@ -7,6 +7,9 @@ import '../widgets/app_drawer.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/error_retry.dart';
 import '../widgets/rename_deck_dialog.dart';
+import '../theme/app_theme.dart';
+import '../utils/busca.dart';
+import '../widgets/campo_busca.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -23,6 +26,13 @@ class _HomeScreenState extends State<HomeScreen> {
   String _userName = 'Estudante';
   final _novoDeckController = TextEditingController();
 
+  // Bloco 7 — busca de decks pelo nome (filtra a lista já carregada)
+  final _buscaController = TextEditingController();
+  String _busca = '';
+
+  List<Deck> get _decksFiltrados =>
+      _decks.where((d) => combinaBusca(_busca, [d.nome])).toList();
+
   @override
   void initState() {
     super.initState();
@@ -32,6 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _novoDeckController.dispose();
+    _buscaController.dispose();
     super.dispose();
   }
 
@@ -67,7 +78,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _criarDeck() async {
     final nome = _novoDeckController.text.trim();
-    if (nome.isEmpty) return;
+    if (nome.isEmpty) {
+      // RF01: nome vazio ou só espaços não cria deck
+      _mostrarErro('Digite um nome para o deck.');
+      return;
+    }
 
     try {
       final novo = await ApiService.criarDeck(nome);
@@ -88,7 +103,16 @@ class _HomeScreenState extends State<HomeScreen> {
     if (atualizado == null || !mounted) return;
 
     setState(() {
-      _decks = _decks.map((d) => d.id == atualizado.id ? atualizado : d).toList();
+      // o PUT não devolve a contagem de cards, então mantém a que já tinha
+      _decks = _decks
+          .map((d) => d.id == atualizado.id
+              ? Deck(
+                  id: d.id,
+                  nome: atualizado.nome,
+                  userId: d.userId,
+                  totalCards: d.totalCards)
+              : d)
+          .toList();
     });
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Deck renomeado')),
@@ -128,11 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
       drawer: const AppDrawer(),
       body: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFDC2626), Color(0xFF991B1B), Colors.black],
-          ),
+          gradient: AppColors.fundo,
         ),
         child: SafeArea(
           child: _loading
@@ -172,11 +192,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                     ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Text(
-                        'Escolha um deck para estudar',
-                        style: TextStyle(color: Colors.white70, fontSize: 14),
+                        _decks.isEmpty
+                            ? 'Crie seu primeiro deck para começar'
+                            : '${_decks.length} decks · '
+                                '${_decks.fold<int>(0, (s, d) => s + d.totalCards)} cards',
+                        style: const TextStyle(color: Colors.white70, fontSize: 14),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -190,13 +213,18 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: TextField(
                               controller: _novoDeckController,
                               style: const TextStyle(color: Colors.white),
+                              onSubmitted: (_) => _criarDeck(),
                               decoration: InputDecoration(
-                                hintText: 'Nome do deck',
-                                hintStyle: const TextStyle(color: Colors.white38),
-                                filled: true,
+                                hintText: 'Nome do novo deck',
+                                prefixIcon: const Icon(Icons.create_new_folder_outlined,
+                                    color: Colors.white54, size: 20),
                                 fillColor: Colors.white.withValues(alpha: 0.1),
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide.none,
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide.none,
                                 ),
                                 contentPadding: const EdgeInsets.symmetric(
@@ -205,33 +233,72 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          ElevatedButton(
+                          ElevatedButton.icon(
                             onPressed: _criarDeck,
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text('Criar'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.white,
-                              foregroundColor: const Color(0xFFDC2626),
+                              foregroundColor: AppColors.vermelho,
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 16, vertical: 14),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            child: const Text('Criar'),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
+
+                    // Busca de decks (Bloco 7) — só aparece quando há decks
+                    if (_decks.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        child: CampoBusca(
+                          controller: _buscaController,
+                          dica: 'Buscar deck pelo nome',
+                          onChanged: (texto) => setState(() => _busca = texto),
+                        ),
+                      )
+                    else
+                      const SizedBox(height: 4),
 
                     // Grid de decks — equivale ao grid-cols-2 do Tailwind
                     Expanded(
-                      child: _decks.isEmpty
+                      child: _decks.isNotEmpty && _decksFiltrados.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.search_off,
+                                      color: Colors.white38, size: 44),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'Nenhum deck encontrado para "$_busca"',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                        color: Colors.white60, fontSize: 15),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : _decks.isEmpty
                           ? const Center(
-                              child: Text(
-                                'Nenhum deck ainda.\nCrie seu primeiro deck!',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                    color: Colors.white60, fontSize: 16),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.style_outlined,
+                                      color: Colors.white38, size: 48),
+                                  SizedBox(height: 12),
+                                  Text(
+                                    'Nenhum deck ainda.\nCrie seu primeiro deck!',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                        color: Colors.white60, fontSize: 16),
+                                  ),
+                                ],
                               ),
                             )
                           : GridView.builder(
@@ -243,9 +310,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                 mainAxisSpacing: 12,
                                 childAspectRatio: 1.1,
                               ),
-                              itemCount: _decks.length,
+                              itemCount: _decksFiltrados.length,
                               itemBuilder: (context, index) {
-                                final deck = _decks[index];
+                                final deck = _decksFiltrados[index];
                                 return _DeckCard(
                                   deck: deck,
                                   onTap: () =>
@@ -281,60 +348,92 @@ class _DeckCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-        ),
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              deck.nome,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+    // Material + InkWell = efeito de toque (ripple) no card inteiro
+    return Material(
+      color: Colors.white.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+          ),
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.style, color: Colors.white, size: 20),
               ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                GestureDetector(
-                  onTap: onEdit,
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.edit_outlined,
-                        color: Colors.white, size: 18),
+              const SizedBox(height: 10),
+              Expanded(
+                child: Text(
+                  deck.nome,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: onDelete,
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(8),
+              ),
+              Row(
+                children: [
+                  // Expanded + ellipsis: com letra grande (acessibilidade)
+                  // a contagem encolhe em vez de estourar o card
+                  Expanded(
+                    child: Text(
+                      deck.totalCards == 1 ? '1 card' : '${deck.totalCards} cards',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white60, fontSize: 12),
                     ),
-                    child: const Icon(Icons.delete_outline,
-                        color: Colors.white, size: 18),
                   ),
-                ),
-              ],
-            ),
-          ],
+                  _AcaoDeck(icone: Icons.edit_outlined, onTap: onEdit),
+                  const SizedBox(width: 6),
+                  _AcaoDeck(
+                    icone: Icons.delete_outline,
+                    onTap: onDelete,
+                    cor: Colors.red.withValues(alpha: 0.45),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Botãozinho quadrado de editar/excluir no canto do card de deck
+class _AcaoDeck extends StatelessWidget {
+  final IconData icone;
+  final VoidCallback onTap;
+  final Color? cor;
+
+  const _AcaoDeck({required this.icone, required this.onTap, this.cor});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: cor ?? Colors.white.withValues(alpha: 0.18),
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Icon(icone, color: Colors.white, size: 16),
         ),
       ),
     );

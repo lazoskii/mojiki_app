@@ -10,6 +10,7 @@ Semana 4 do cronograma (ver [README.md](../README.md), Bloco 3). Um caso de test
 - **Resultado obtido:** o backend (`POST /decks`) não valida `nome`, aceita string vazia e cria o registro. O frontend bloqueia string totalmente vazia no clique, mas um nome só com espaços passa (`" "`) e é aceito pelos dois lados.
 - **Status:** **Falhou.**
 - **Defeito:** deck com nome em branco (só espaços) é criado e aparece na lista sem identificação útil.
+- **Reteste (Bloco 7, ajustes finais):** o app mostra "Digite um nome para o deck." e não chama a API; o backend recusa nome vazio/só espaços com 400 (`POST /decks` e `PUT /decks/{id}`). Coberto por teste automatizado. **Passou.**
 
 ## CT02 — Criar flashcard com pergunta ou resposta vazia (RF02)
 
@@ -19,6 +20,7 @@ Semana 4 do cronograma (ver [README.md](../README.md), Bloco 3). Um caso de test
 - **Resultado obtido:** o frontend (`study_screen.dart`) já exige os dois campos não vazios antes de chamar a API. Mas o backend (`POST /flashcards`) não valida nada — um `curl` ou outro cliente pode gravar pergunta/resposta vazia direto.
 - **Status:** **Falhou (parcialmente)** — protegido só no cliente, não no servidor.
 - **Defeito:** validação ausente no backend; qualquer chamada direta à API contorna a regra.
+- **Reteste (Bloco 7, ajustes finais):** `POST /flashcards` e `PUT /flashcards/{id}` recusam pergunta ou resposta vazias com 400 (conferido chamando as rotas); o app avisa "Preencha a pergunta e a resposta.". **Passou.**
 
 ## CT03 — API fora do ar ao abrir a Home (RF03)
 
@@ -28,6 +30,7 @@ Semana 4 do cronograma (ver [README.md](../README.md), Bloco 3). Um caso de test
 - **Resultado obtido:** `ApiService.listarDecks()` não tem try/catch; a exceção de conexão sobe sem tratamento e a tela de Home fica presa no `CircularProgressIndicator` indefinidamente.
 - **Status:** **Falhou.**
 - **Defeito:** nenhuma chamada em `ApiService` fora da sessão de estudo trata falha de rede; Home, criação e exclusão de deck/flashcard ficam vulneráveis ao mesmo travamento.
+- **Reteste (Bloco 4):** toda chamada do `ApiService` tem timeout de 10s e trata falha de rede; Home, Sessão de Estudo, estudo de um deck e Progresso mostram a tela de erro com "Tentar novamente" em vez de travar. **Passou.**
 
 ## CT04 — Excluir deck sem confirmação (RF04)
 
@@ -37,6 +40,7 @@ Semana 4 do cronograma (ver [README.md](../README.md), Bloco 3). Um caso de test
 - **Resultado obtido:** `_deletarDeck` em `home_screen.dart` chama `ApiService.deletarDeck(id)` direto no `onTap`, sem diálogo. O deck e todos os seus flashcards são apagados imediatamente, sem confirmação nem forma de desfazer.
 - **Status:** **Falhou.**
 - **Defeito:** exclusão de deck é irreversível e sem aviso — risco de perda de dados por toque acidental.
+- **Reteste (Bloco 4):** a lixeira abre "Excluir deck?" avisando que os flashcards também serão apagados; Cancelar não chama a API. **Passou.**
 
 ## CT05 — Excluir flashcard sem confirmação (RF05)
 
@@ -46,6 +50,7 @@ Semana 4 do cronograma (ver [README.md](../README.md), Bloco 3). Um caso de test
 - **Resultado obtido:** mesmo padrão de CT04 — `_deletarFlashcard` em `study_screen.dart` exclui direto, sem diálogo.
 - **Status:** **Falhou.**
 - **Defeito:** mesmo risco de CT04, aplicado a flashcards.
+- **Reteste (Bloco 4):** "Deletar card" abre "Excluir flashcard?" antes de apagar. **Passou.**
 
 ## CT06 — Editar flashcard existente (RF06)
 
@@ -55,7 +60,7 @@ Semana 4 do cronograma (ver [README.md](../README.md), Bloco 3). Um caso de test
 - **Resultado obtido:** não existe nenhuma opção de edição na UI (`study_screen.dart` só tem criar e excluir); `ApiService` não tem método que chame `PUT /flashcards/{id}`, apesar do endpoint existir e funcionar no backend.
 - **Status:** **Falhou.**
 - **Defeito:** funcionalidade de edição ausente ponta a ponta no frontend — backend pronto, sem uso.
-- **Reteste (semana 7 — Bloco 5):** botão "Editar card" na tela de estudo abre um diálogo com pergunta/resposta preenchidas; ao salvar, chama `PUT /flashcards/{id}` e o card é atualizado na tela. Campos vazios são bloqueados no diálogo. Backend conferido (atualiza e devolve o card; id inexistente → `{"erro": ...}`); **falta reexecutar o passo a passo manualmente no app.**
+- **Reteste (semana 7 — Bloco 5):** botão "Editar card" na tela de estudo abre um diálogo com pergunta/resposta preenchidas; ao salvar, chama `PUT /flashcards/{id}` e o card é atualizado na tela. Campos vazios são bloqueados no diálogo. Backend conferido (atualiza e devolve o card; id inexistente → `{"erro": ...}`). Coberto por testes automatizados (salvar e campo vazio). **Passou.**
 
 ## CT07 — Renomear deck existente (RF07)
 
@@ -65,7 +70,7 @@ Semana 4 do cronograma (ver [README.md](../README.md), Bloco 3). Um caso de test
 - **Resultado obtido:** não existe endpoint `PUT /decks/{id}` no backend nem opção na UI (`home_screen.dart` só tem criar e excluir).
 - **Status:** **Falhou.**
 - **Defeito:** funcionalidade ausente dos dois lados — backend e frontend.
-- **Reteste (semana 8 — Bloco 5):** criado `PUT /decks/{id}` (nome vazio → 400; id inexistente → `{"erro": ...}`) e botão de lápis em cada deck da Home, que abre um diálogo de renomear. Backend conferido; **falta reexecutar o passo a passo manualmente no app.**
+- **Reteste (semana 8 — Bloco 5):** criado `PUT /decks/{id}` (nome vazio → 400; id inexistente → `{"erro": ...}`) e botão de lápis em cada deck da Home, que abre um diálogo de renomear. Backend conferido. Coberto por teste automatizado (renomeia e mantém a contagem de cards). **Passou.**
 
 ## CT08 — Tocar em um modo de estudo (RF08)
 
@@ -77,18 +82,34 @@ Semana 4 do cronograma (ver [README.md](../README.md), Bloco 3). Um caso de test
 - **Defeito:** funcionalidade puramente decorativa, confirmando o ponto já levantado no diagnóstico do README.
 - **Reteste (semanas 9-10 — Bloco 6):** os 3 cards agora abrem a escolha de deck e iniciam a sessão com as regras do modo (ver tabela em `requisitos.md`, RF08). Backend conferido (`modo` gravado na sessão; modo inválido → 400); **falta reexecutar o passo a passo manualmente no app.**
 
+## CT09 — Buscar deck pelo nome (RF09)
+
+- **Pré-condição:** Home com ao menos dois decks (ex.: "Matemática" e "Japonês").
+- **Passos:** 1) Digitar `japones` no campo "Buscar deck pelo nome". 2) Digitar `xyz`.
+- **Resultado esperado:** 1) só "Japonês" aparece (sem diferenciar acento/maiúscula). 2) aparece "Nenhum deck encontrado".
+- **Status:** **Passou** — coberto por teste automatizado.
+
+## CT10 — Buscar card dentro do deck (RF10)
+
+- **Pré-condição:** deck aberto com os cards "2 + 2 → 4" e "Raiz de 9 → 3".
+- **Passos:** 1) Tocar na lupa do cabeçalho. 2) Digitar `3`. 3) Tocar no resultado.
+- **Resultado esperado:** só "Raiz de 9" aparece (achado pela resposta); ao tocar, a tela de estudo vai para esse card (2 / 2).
+- **Status:** **Passou** — coberto por teste automatizado.
+
 ## Resumo dos defeitos
 
-| Caso | Requisito | Status | Severidade |
-|---|---|---|---|
-| CT04 | RF04 | Falhou | Alta — perda de dados sem aviso |
-| CT05 | RF05 | Falhou | Alta — perda de dados sem aviso |
-| CT03 | RF03 | Falhou | Alta — app trava, sem forma de recuperar sem reiniciar |
-| CT01 | RF01 | Falhou | Média — dado inconsistente, não causa crash |
-| CT02 | RF02 | Falhou (parcial) | Média — só explorável via chamada direta à API |
-| CT06 | RF06 | Falhou | Média — funcionalidade ausente, não quebra o que já existe |
-| CT07 | RF07 | Falhou | Média — funcionalidade ausente, não quebra o que já existe |
-| CT08 | RF08 | Falhou | Baixa — visual, não afeta dados nem fluxo principal |
+| Caso | Requisito | Status inicial (semana 4) | Severidade | Status na entrega |
+|---|---|---|---|---|
+| CT04 | RF04 | Falhou | Alta — perda de dados sem aviso | Passou (Bloco 4) |
+| CT05 | RF05 | Falhou | Alta — perda de dados sem aviso | Passou (Bloco 4) |
+| CT03 | RF03 | Falhou | Alta — app trava, sem forma de recuperar sem reiniciar | Passou (Bloco 4) |
+| CT01 | RF01 | Falhou | Média — dado inconsistente, não causa crash | Passou (ajustes finais) |
+| CT02 | RF02 | Falhou (parcial) | Média — só explorável via chamada direta à API | Passou (ajustes finais) |
+| CT06 | RF06 | Falhou | Média — funcionalidade ausente, não quebra o que já existe | Passou (Bloco 5) |
+| CT07 | RF07 | Falhou | Média — funcionalidade ausente, não quebra o que já existe | Passou (Bloco 5) |
+| CT08 | RF08 | Falhou | Baixa — visual, não afeta dados nem fluxo principal | Implementado (Bloco 6) — conferir no app |
+| CT09 | RF09 | — (criado no Bloco 7) | Baixa | Passou (Bloco 7) |
+| CT10 | RF10 | — (criado no Bloco 7) | Baixa | Passou (Bloco 7) |
 
 ## Priorização para correção
 

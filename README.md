@@ -13,18 +13,57 @@ Este diagnóstico parte disso: para cada problema encontrado, definimos o requis
 - **Progresso local** — cards estudados e sequência de dias já são acompanhados de verdade.
 - **Menu lateral** unificando o acesso a Decks, Sessão de Estudo e Progresso.
 
+### Entregue durante o cronograma (Blocos 1 a 7)
+
+- **Autoavaliação** — botões Acertei / Errei gravados na `StudySession`, com tela de resultado (% de acerto) no fim da sessão.
+- **Robustez** — toda chamada de API trata falha de rede (tela de erro com "Tentar novamente") e excluir deck/flashcard pede confirmação.
+- **Validação** — deck sem nome e flashcard sem pergunta/resposta são recusados no app e no backend (erro 400).
+- **Edição** — editar pergunta/resposta de um flashcard e renomear deck.
+- **Modos de estudo** — Sessão Rápida, Prática Diária e Sessão Intensiva com cronômetro, cards embaralhados e o modo gravado na sessão.
+- **Busca** — de decks na Home e de cards dentro de um deck (ignora maiúsculas e acentos).
+- **Extras** — XP, nível e conquistas na tela de Progresso; "Enviar feedback" no menu; tema visual único (`flutter_frontend/lib/theme/app_theme.dart`).
+
+## Como rodar
+
+**Backend** (FastAPI + SQLite, porta 8000):
+
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
+
+O banco `flashcards.db` e o deck de teste são criados automaticamente na primeira execução.
+
+**App** (Flutter):
+
+```bash
+cd flutter_frontend
+flutter pub get
+flutter run -d chrome   # ou -d edge, ou um emulador Android
+```
+
+**Testes automatizados** (não precisam do backend rodando):
+
+```bash
+cd flutter_frontend
+flutter test
+```
+
 ## Pontos de melhoria
 
-| Frente | Item | Descrição |
-|---|---|---|
-| Robustez | Tela trava no "carregando" | Se a API cair ou a rede falhar, a tela fica presa no spinner — nenhuma chamada tem tratamento de erro. |
-| Robustez | Exclusão sem confirmação | Apagar um deck ou flashcard é instantâneo, sem diálogo de confirmação nem forma de desfazer. |
-| CRUD incompleto | Editar flashcard não existe | O backend já tem `PUT /flashcards/{id}` pronto, mas o app nunca chama — dá pra criar e excluir, não corrigir. |
-| CRUD incompleto | Deck não tem edição | Não existe endpoint de renomear deck — só criar e excluir. |
-| Funcionalidade morta | Modos de estudo são só visual | Os cards de Sessão Rápida / Diária / Intensiva não fazem nada ao tocar — puramente decorativos. |
-| Funcionalidade morta | StudySession nunca é usada | O model com `acertos`/`erros` existe em `models.py`, mas nenhuma rota grava ou lê esses dados. |
-| Outras menores | Sem busca | Não há como filtrar decks ou cards por nome quando a lista cresce. |
-| Outras menores | user_id sempre fixo | Todo deck é criado com `user_id = 1` — não existem usuários reais ainda. |
+Diagnóstico feito no início do projeto (25/08). A coluna **Situação** mostra como cada ponto ficou na entrega.
+
+| Frente | Item | Descrição | Situação |
+|---|---|---|---|
+| Robustez | Tela trava no "carregando" | Se a API cair ou a rede falhar, a tela fica presa no spinner — nenhuma chamada tem tratamento de erro. | Resolvido (Bloco 4) |
+| Robustez | Exclusão sem confirmação | Apagar um deck ou flashcard é instantâneo, sem diálogo de confirmação nem forma de desfazer. | Resolvido (Bloco 4) |
+| CRUD incompleto | Editar flashcard não existe | O backend já tem `PUT /flashcards/{id}` pronto, mas o app nunca chama — dá pra criar e excluir, não corrigir. | Resolvido (Bloco 5) |
+| CRUD incompleto | Deck não tem edição | Não existe endpoint de renomear deck — só criar e excluir. | Resolvido (Bloco 5) |
+| Funcionalidade morta | Modos de estudo são só visual | Os cards de Sessão Rápida / Diária / Intensiva não fazem nada ao tocar — puramente decorativos. | Resolvido (Bloco 6) |
+| Funcionalidade morta | StudySession nunca é usada | O model com `acertos`/`erros` existe em `models.py`, mas nenhuma rota grava ou lê esses dados. | Resolvido (Blocos 1 e 6) |
+| Outras menores | Sem busca | Não há como filtrar decks ou cards por nome quando a lista cresce. | Resolvido (Bloco 7) |
+| Outras menores | user_id sempre fixo | Todo deck é criado com `user_id = 1` — não existem usuários reais ainda. | Backlog (ver abaixo) |
 
 ## Quebrando em tasks
 
@@ -63,7 +102,7 @@ A numeração dos blocos segue a ordem de prioridade da apresentação; os bloco
 - [x] Ligar a tela de edição de flashcard ao endpoint `PUT /flashcards/{id}` já existente — **M**
 - [x] Criar endpoint de edição (renomear) de deck no backend — **M**
 - [x] Adicionar opção de editar deck na interface — **P**
-- [ ] Testar a edição de flashcard e de deck — **P**
+- [x] Testar a edição de flashcard e de deck — **P** → testes automatizados em [flutter_frontend/test/edicao_e_busca_test.dart](flutter_frontend/test/edicao_e_busca_test.dart)
 
 ### Bloco 6 — Funcionalidade morta (modos de estudo)
 
@@ -73,9 +112,9 @@ A numeração dos blocos segue a ordem de prioridade da apresentação; os bloco
 
 ### Bloco 7 — Outras melhorias menores
 
-- [ ] Adicionar campo de busca para decks — **M**
-- [ ] Adicionar busca de cards dentro de um deck — **M**
-- [ ] Registrar o `user_id` fixo como pendência de backlog, para quando existir autenticação real — **P**
+- [x] Adicionar campo de busca para decks — **M**
+- [x] Adicionar busca de cards dentro de um deck — **M**
+- [x] Registrar o `user_id` fixo como pendência de backlog, para quando existir autenticação real — **P** → seção [Backlog](#backlog)
 
 ## Tamanho das tasks
 
@@ -107,9 +146,19 @@ Estimativa a partir de hoje (25/08) até a entrega em 17/11 — 12 semanas ao to
 
 Essa distribuição é uma estimativa e pode ser ajustada durante o andamento — os blocos 1 a 3 são prioridade e não devem atrasar; os blocos 6 e 7 têm mais folga para absorver imprevistos.
 
+## Backlog
+
+Pendências registradas para depois da entrega:
+
+- **`user_id` fixo** — o app ainda não tem login, então todo deck e toda sessão de estudo são gravados com `user_id = 1`. No app esse valor está centralizado na constante `usuarioFixoId` (`flutter_frontend/lib/services/api_service.dart`); quando existir autenticação real, basta trocar a constante pelo id do usuário logado e fazer o backend filtrar `GET /decks` por usuário.
+- **Progresso só no aparelho** — XP, nível, conquistas e sequência de dias ficam no `SharedPreferences` (local). Com usuários reais, faz sentido levar isso para o backend.
+- **`session_result_screen.dart`** — tela de resultado em página cheia que ficou sem uso depois da junção com a janela `session_results_dialog.dart`; pode ser removida ou reaproveitada.
+
 ## Fora do escopo neste momento
 
 - Autenticação real de usuários (login, múltiplas contas).
 - Notificações ou lembretes automáticos.
 - Sincronização entre dispositivos.
-- Testes automatizados (por enquanto os testes são executados manualmente, a partir dos casos de teste do Bloco 3).
+- Repetição espaçada (agendar quando cada card volta, como no Anki).
+
+Sobre testes: os casos de teste do Bloco 3 ([docs/casos_de_teste.md](docs/casos_de_teste.md)) são o roteiro manual. Além deles, `flutter_frontend/test/` tem testes automatizados de widget cobrindo autoavaliação, edição, validação e busca.

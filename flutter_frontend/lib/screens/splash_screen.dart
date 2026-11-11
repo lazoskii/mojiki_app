@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../theme/app_theme.dart';
 
 // StatefulWidget = componente com estado (equivale a useState no React)
 class SplashScreen extends StatefulWidget {
@@ -44,31 +45,44 @@ class _SplashScreenState extends State<SplashScreen> {
       body: Container(
         // BoxDecoration com gradient = equivale ao bg-gradient-to-br do Tailwind
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFDC2626), Color(0xFF991B1B), Colors.black],
-          ),
+          gradient: AppColors.fundo,
         ),
         child: const Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              // mesma marca do menu lateral e do onboarding (文字記 = Mojiki)
               Text(
-                '日本語',
+                '文字記',
                 style: TextStyle(
                   fontSize: 64,
                   color: Colors.white,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w300,
+                  letterSpacing: 4,
                 ),
               ),
-              SizedBox(height: 16),
+              SizedBox(height: 12),
               Text(
-                'Flashcards',
-                style: TextStyle(fontSize: 24, color: Colors.white70),
+                'MOJIKI',
+                style: TextStyle(
+                  fontSize: 18,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 8,
+                ),
+              ),
+              SizedBox(height: 6),
+              Text(
+                'Aprenda japonês com flashcards',
+                style: TextStyle(fontSize: 14, color: Colors.white60),
               ),
               SizedBox(height: 48),
-              CircularProgressIndicator(color: Colors.white),
+              SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(
+                    color: Colors.white70, strokeWidth: 2.5),
+              ),
             ],
           ),
         ),

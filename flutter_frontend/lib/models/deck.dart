@@ -5,13 +5,16 @@ class Deck {
   final String nome;
   final int userId;
   final List<Flashcard> cards;
+  // GET /decks não traz os cards, só a contagem (total_cards)
+  final int totalCards;
 
   Deck({
     required this.id,
     required this.nome,
     required this.userId,
     this.cards = const [],
-  });
+    int? totalCards,
+  }) : totalCards = totalCards ?? cards.length;
 
   // fromJson: converte o JSON da API em um objeto Deck
   // equivale a quando você fazia: const data = await res.json()
@@ -23,6 +26,7 @@ class Deck {
       cards: json['cards'] != null
           ? (json['cards'] as List).map((c) => Flashcard.fromJson(c)).toList()
           : [],
+      totalCards: json['total_cards'],
     );
   }
 

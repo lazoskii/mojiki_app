@@ -21,6 +21,15 @@ app.add_middleware(           #adicionei isso pra nao dar erro no cors q tava
     allow_headers=["*"],
 )
 
+#RF01/RF02: texto obrigatorio. Tira os espacos das pontas e devolve erro 400
+#se sobrar string vazia (antes o backend aceitava deck/card em branco).
+def obrigatorio(valor: str, campo: str) -> str:
+    valor = valor.strip()
+    if not valor:
+        raise HTTPException(status_code=400, detail=f"O campo {campo} não pode ficar vazio")
+    return valor
+
+
 # =========================
 # FLASHCARDS
 # =========================
@@ -28,6 +37,9 @@ app.add_middleware(           #adicionei isso pra nao dar erro no cors q tava
 #rota: criar flashcard
 @app.post("/flashcards") 
 def criar_flashcard(card: Flashcard):  #usa model (pydantic)
+    card.pergunta = obrigatorio(card.pergunta, "Pergunta")
+    card.resposta = obrigatorio(card.resposta, "Resposta")
+
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -84,6 +96,9 @@ def buscar_flashcard(id: int):
 #rota: atualizar flashcard
 @app.put("/flashcards/{id}")
 def atualizar_flashcard(id: int, card: Flashcard):
+    card.pergunta = obrigatorio(card.pergunta, "Pergunta")
+    card.resposta = obrigatorio(card.resposta, "Resposta")
+
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -130,6 +145,8 @@ def deletar_flashcard(id: int):
 #rota: criar deck
 @app.post("/decks")
 def criar_deck(deck: Deck):
+    deck.nome = obrigatorio(deck.nome, "Nome do deck")
+
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -155,7 +172,12 @@ def listar_decks():
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT * FROM decks")
+    #total_cards: quantidade de flashcards de cada deck (mostrada na Home)
+    cursor.execute("""
+        SELECT decks.*,
+               (SELECT COUNT(*) FROM flashcards WHERE flashcards.deck_id = decks.id) AS total_cards
+        FROM decks
+    """)
     decks = cursor.fetchall()
 
     conn.close()
@@ -190,9 +212,7 @@ def buscar_deck(id: int):
 #rota: renomear deck (semana 8 - RF07)
 @app.put("/decks/{id}")
 def renomear_deck(id: int, deck: RenomearDeck):
-    nome = deck.nome.strip()
-    if not nome:
-        raise HTTPException(status_code=400, detail="Nome do deck vazio")
+    nome = obrigatorio(deck.nome, "Nome do deck")
 
     conn = get_connection()
     cursor = conn.cursor()

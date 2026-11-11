@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 // Telinha de resultado mostrada ao terminar uma sessão de estudo,
 // substituindo o SnackBar simples de "Acertos: X · Erros: Y".
@@ -21,11 +22,7 @@ Future<void> mostrarResultadoSessao(
       child: Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFDC2626), Color(0xFF991B1B), Colors.black],
-          ),
+          gradient: AppColors.fundo,
           borderRadius: BorderRadius.circular(24),
         ),
         child: Column(

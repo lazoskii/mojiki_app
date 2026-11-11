@@ -25,6 +25,12 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
+// PENDÊNCIA (backlog, Bloco 7): o app ainda não tem login, então todo deck e
+// toda sessão de estudo são gravados com o mesmo usuário. Quando existir
+// autenticação real, trocar esta constante pelo id do usuário logado.
+// Ver a seção "Backlog" do README.
+const usuarioFixoId = 1;
+
 const _erroConexao =
     'Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.';
 
@@ -56,6 +62,16 @@ class ApiService {
   // o formato {"erro": "..."} que o backend usa para erros de negócio.
   static dynamic _decodificar(http.Response res) {
     if (res.statusCode >= 400) {
+      // Erros de validação do FastAPI (HTTPException) vêm como
+      // {"detail": "..."} — mostra essa mensagem quando ela existe.
+      try {
+        final corpo = jsonDecode(res.body);
+        if (corpo is Map && corpo['detail'] is String) {
+          throw ApiException(corpo['detail']);
+        }
+      } on FormatException {
+        // corpo não é JSON: cai na mensagem genérica abaixo
+      }
       throw ApiException('Erro no servidor (${res.statusCode}). Tente novamente.');
     }
     final corpo = jsonDecode(res.body);
@@ -84,7 +100,7 @@ class ApiService {
     final res = await _enviar(() => client.post(
           Uri.parse('$_baseUrl/decks'),
           headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'nome': nome, 'user_id': 1}),
+          body: jsonEncode({'nome': nome, 'user_id': usuarioFixoId}),
         ));
     return Deck.fromJson(_decodificar(res));
   }
