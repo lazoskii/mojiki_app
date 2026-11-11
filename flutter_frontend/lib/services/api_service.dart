@@ -52,6 +52,16 @@ const usuarioFixoId = 1;
 const _erroConexao =
     'Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.';
 
+// Backend online no plano grátis do Render "dorme" sem uso e leva ~30-50 s
+// pra acordar; com API_URL definida, espera bem mais antes de desistir.
+const _servidorOnline = _apiUrlDoBuild != '';
+const _limitePadrao =
+    _servidorOnline ? Duration(seconds: 70) : Duration(seconds: 10);
+const _erroTempo = _servidorOnline
+    ? 'O servidor demorou para responder (ele "dorme" quando fica sem uso). '
+        'Tente novamente em alguns segundos.'
+    : _erroConexao;
+
 class ApiService {
   // Cliente HTTP injetável: em produção usa um http.Client() padrão de
   // verdade; nos testes de widget dá pra trocar por um MockClient
@@ -62,15 +72,18 @@ class ApiService {
 
   // Executa a chamada HTTP tratando falhas de rede/timeout; quem chama
   // ainda decide o que fazer com a Response (checar status, decodificar).
-  // `limite`: 10s pras chamadas normais; a importação usa mais (OCR demora).
+  // `limite`: tempo máximo de espera. Padrão: 10 s com backend local, 70 s
+  // com backend online (acordar o servidor); a importação pede mais.
   static Future<http.Response> _enviar(
     Future<http.Response> Function() requisicao, {
-    Duration limite = const Duration(seconds: 10),
+    Duration? limite,
   }) async {
+    var espera = limite ?? _limitePadrao;
+    if (espera < _limitePadrao) espera = _limitePadrao;
     try {
-      return await requisicao().timeout(limite);
+      return await requisicao().timeout(espera);
     } on TimeoutException {
-      throw const ApiException(_erroConexao);
+      throw const ApiException(_erroTempo);
     } on SocketException {
       throw const ApiException(_erroConexao);
     } on http.ClientException {

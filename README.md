@@ -83,10 +83,17 @@ O app web é publicado sozinho pelo workflow `.github/workflows/pages.yml` a cad
 2. Faça o push (ou *Actions → Publicar app web → Run workflow*).
 3. O site fica em **https://lazoskii.github.io/mojiki_app/**.
 
-**Backend:** o GitHub Pages só hospeda o site — o backend (FastAPI) precisa estar em outro lugar.
-- Enquanto não houver backend online, o site procura o backend em `http://127.0.0.1:8000`, ou seja, **no computador de quem abre o site**. Funciona pra quem estiver com o backend rodando (o navegador pode pedir permissão de "acesso à rede local"); pra outras pessoas aparece a tela "Sem conexão".
-- Quando o backend estiver online (ex.: Render), crie a variável do repositório **`API_URL`** com o endereço dele (*Settings → Secrets and variables → Actions → Variables*, ex.: `https://mojiki-api.onrender.com`) e rode o workflow de novo.
-- Pra testar o build localmente apontando pra outro backend: `flutter build web --dart-define=API_URL=https://...`
+**Backend:** o GitHub Pages só entrega arquivos prontos — não roda o backend (Python). Ele fica no **Render**, configurado pelo `render.yaml` da raiz:
+
+1. Entre em [render.com](https://render.com) com a conta do GitHub.
+2. *New → Blueprint* → escolha o repositório `mojiki_app` → *Apply*. O Render instala e sobe a API (plano grátis).
+3. Copie o endereço do serviço `mojiki-api` (algo como `https://mojiki-api.onrender.com`) e confira abrindo `…/decks` no navegador.
+4. No GitHub: *Settings → Secrets and variables → Actions → Variables → New repository variable*: nome **`API_URL`**, valor = o endereço do passo 3 (sem `/` no fim).
+5. *Actions → Publicar app web → Run workflow*. Pronto: o site do Pages passa a usar o backend do Render.
+
+Limites do plano grátis do Render: o servidor **dorme** depois de ~15 min sem uso (o primeiro acesso depois disso leva ~30-50 s — o app espera até 70 s) e o **banco volta ao estado inicial** (só o deck de teste) quando o servidor reinicia ou é publicado de novo. Como ainda não há login, todo mundo que usa o site compartilha os mesmos decks.
+
+Sem a variável `API_URL`, o site procura o backend em `http://127.0.0.1:8000` (o computador de quem abre). Pra testar um build local apontando pra outro backend: `flutter build web --dart-define=API_URL=https://...`
 
 ## Pontos de melhoria
 
