@@ -1,0 +1,27 @@
+﻿Pergunta;Resposta
+Velocidade média;v = Δs/Δt
+MRUV: função horária da posição;s = s₀ + v₀·t + a·t²/2
+Equação de Torricelli;v² = v₀² + 2·a·Δs
+Segunda lei de Newton;F = m·a
+Peso;P = m·g (g ≈ 10 m/s² na Terra)
+Trabalho de uma força;τ = F·d·cos θ
+Energia cinética;Ec = m·v²/2
+Energia potencial gravitacional;Ep = m·g·h
+Potência mecânica;P = trabalho/tempo (W = J/s)
+Quantidade de movimento;Q = m·v
+Primeira lei de Ohm;U = R·i
+Potência elétrica;P = U·i (= R·i² = U²/R)
+Consumo de energia elétrica;E = P·Δt (em kWh: potência em kW × horas)
+Resistores em série;Req = R₁ + R₂ + ...
+Dois resistores em paralelo;Req = (R₁·R₂)/(R₁ + R₂)
+Equação fundamental da ondulatória;v = λ·f
+Densidade;d = m/V
+Pressão;p = F/A
+Pressão hidrostática (Stevin);p = p₀ + d·g·h
+Empuxo (Arquimedes);E = d(líquido)·V(submerso)·g
+Calor sensível;Q = m·c·ΔT
+Calor latente;Q = m·L
+Celsius para Kelvin;T(K) = T(°C) + 273
+Primeira lei da termodinâmica;Q = τ + ΔU
+Lei de Snell (refração);n₁·sen θ₁ = n₂·sen θ₂
+Equação de Gauss (lentes e espelhos);1/f = 1/p + 1/p'

@@ -1,0 +1,33 @@
+﻿Pergunta;Resposta
+Área do círculo;A = π·r²
+Comprimento da circunferência;C = 2·π·r
+Área do triângulo;A = (b·h)/2
+Área do trapézio;A = (B + b)·h/2
+Teorema de Pitágoras;a² = b² + c² (hipotenusa² = soma dos quadrados dos catetos)
+Volume do cilindro;V = π·r²·h
+Volume do cone;V = (π·r²·h)/3
+Volume da esfera;V = (4/3)·π·r³
+Volume do paralelepípedo;V = comprimento·largura·altura
+Fórmula de Bhaskara;x = (−b ± √Δ)/(2a), com Δ = b² − 4ac
+Vértice da parábola;xᵥ = −b/(2a) e yᵥ = −Δ/(4a)
+Função afim;f(x) = ax + b (a = taxa de variação, b = valor quando x = 0)
+Termo geral da PA;aₙ = a₁ + (n − 1)·r
+Soma dos termos da PA;Sₙ = (a₁ + aₙ)·n/2
+Termo geral da PG;aₙ = a₁·qⁿ⁻¹
+Soma da PG infinita (|q| < 1);S = a₁/(1 − q)
+Juros simples;J = C·i·t (montante M = C + J)
+Juros compostos;M = C·(1 + i)ᵗ
+Aumento de 20% sobre um valor x;x·1,20
+Desconto de 15% sobre um valor x;x·0,85
+Probabilidade;P = casos favoráveis / casos possíveis
+Permutação simples;Pₙ = n!
+Arranjo simples;A(n,p) = n!/(n − p)!
+Combinação simples;C(n,p) = n!/[p!·(n − p)!]
+Média aritmética;soma dos valores ÷ quantidade de valores
+Mediana;valor central dos dados em ordem (com quantidade par: média dos dois centrais)
+Moda;valor que mais se repete
+Escala;medida no desenho ÷ medida real
+Figuras semelhantes com razão k;as áreas ficam na razão k² e os volumes na razão k³
+Soma dos ângulos internos de um polígono de n lados;S = (n − 2)·180°
+Seno, cosseno e tangente;sen = oposto/hipotenusa · cos = adjacente/hipotenusa · tg = oposto/adjacente
+Definição de logaritmo: logₐ b = x;aˣ = b

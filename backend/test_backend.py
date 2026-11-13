@@ -74,6 +74,10 @@ class TestReconhecimentoJaponesPortugues(unittest.TestCase):
         self.assertEqual(pares, [("犬", "cachorro"), ("猫", "gato")])
         self.assertEqual(ignoradas, 2)  # "Vocabulário" e "12"
 
+    def test_sinais_de_menor_e_maior_nao_sao_html(self):
+        self.assertEqual(importador.limpar("7 (ácido < 7, básico > 7)"), "7 (ácido < 7, básico > 7)")
+        self.assertEqual(importador.limpar("<b>fogo</b> <span class='x'>quente</span>"), "fogo quente")
+
     def test_ocr_espacado_e_juntado(self):
         self.assertEqual(importador.limpar("水 は  água"), "水は água")
 
@@ -84,6 +88,21 @@ class TestFormatos(unittest.TestCase):
         self.assertEqual(previa["cards"], [{"pergunta": "水", "resposta": "água"},
                                            {"pergunta": "火", "resposta": "fogo"}])
         self.assertEqual(previa["nome_sugerido"], "vocab")
+
+    def test_csv_com_ponto_e_virgula_e_muitas_virgulas(self):
+        # caso real: o csv.Sniffer achava que o separador era a virgula
+        texto = ("Pergunta;Resposta\n"
+                 "Biomas brasileiros;Amazônia, Cerrado, Caatinga, Mata Atlântica, Pampa e Pantanal\n"
+                 "Blocos econômicos;Mercosul, União Europeia, USMCA\n"
+                 "Clima equatorial;quente e úmido o ano todo\n")
+        previa = importador.gerar_previa("geo.csv", texto.encode("utf-8-sig"))
+        self.assertEqual(len(previa["cards"]), 3)
+        self.assertEqual(previa["cards"][0]["pergunta"], "Biomas brasileiros")
+        self.assertTrue(previa["cards"][0]["resposta"].startswith("Amazônia, Cerrado"))
+
+    def test_csv_com_virgula(self):
+        previa = importador.gerar_previa("en.csv", "dog,cachorro\ncat,gato\n".encode())
+        self.assertEqual(previa["cards"][1], {"pergunta": "cat", "resposta": "gato"})
 
     def test_export_de_texto_do_anki(self):
         texto = "#separator:tab\n#html:true\n山\tmontanha\n川\trio\n"

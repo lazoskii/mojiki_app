@@ -5,7 +5,7 @@
 #
 # Plano grátis: o servidor "dorme" depois de ~15 min sem uso (o primeiro
 # acesso depois disso demora ~30-50 s) e o disco não é permanente — o
-# banco SQLite volta ao estado inicial (só com o deck de teste) quando o
+# banco SQLite volta ao estado inicial (vazio) quando o
 # servidor reinicia ou é publicado de novo.
 services:
   - type: web
@@ -21,8 +21,8 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.10 # testado: requirements.txt instala e os testes passam
-      # banco próprio do servidor online, criado do zero (só com o deck de
-      # teste) — NÃO usa o backend/flashcards.db do repositório, que tem
+      # banco próprio do servidor online, criado do zero (vazio) —
+      # NÃO usa o backend/flashcards.db do repositório, que tem
       # os dados de quem desenvolve
       - key: MOJIKI_DB
         value: /tmp/mojiki_online.db

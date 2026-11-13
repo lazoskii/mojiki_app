@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from database import create_tables, get_connection, seed_dados_teste
+from database import create_tables, get_connection
 from importador import ErroImportacao, gerar_previa, gerar_previa_texto
 from models import (Deck, EnviarFeedback, Flashcard, ImportarDeck, IniciarSessao,
                     LoteCards, RegistrarResposta, RenomearDeck, TextoImportado)
@@ -27,9 +27,6 @@ app = FastAPI()
 
 #cria as tabelas automaticamente no banco
 create_tables()
-
-#garante que o deck de teste fixo existe (roda em qualquer maquina)
-seed_dados_teste()
 
 #CORS: deixa o app (que roda em outra porta/origem, ex.: Flutter web) chamar a API.
 #allow_credentials fica False: o app nao usa cookies, e o navegador recusa

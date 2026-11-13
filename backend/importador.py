@@ -67,7 +67,9 @@ def limpar(texto) -> str:
     texto = str(texto)
     texto = re.sub(r"\[sound:[^\]]*\]", " ", texto)
     texto = re.sub(r"<br\s*/?>|<div>|</div>|<p>|</p>", " ", texto, flags=re.I)
-    texto = re.sub(r"<[^>]+>", "", texto)
+    #so remove o que parece tag HTML (<b>, </div>, <span ...>); antes qualquer
+    #trecho entre < e > sumia, ex.: "7 (ácido < 7, básico > 7)" virava "7 (ácido  7)"
+    texto = re.sub(r"</?[A-Za-z][^<>]*>", "", texto)
     texto = html.unescape(texto).replace("\xa0", " ")
     #o OCR coloca espaco entre cada caractere japones ("水 は") -> junta
     texto = re.sub(r"(?<=[\u3040-\u30ff\u3400-\u9fff])\s+(?=[\u3040-\u30ff\u3400-\u9fff])", "", texto)
@@ -240,17 +242,34 @@ def _decodificar_texto(dados: bytes) -> str:
     return dados.decode("latin-1")
 
 
+def _detectar_separador(texto: str):
+    """Descobre o separador das colunas (tab, ;, | ou ,).
+
+    Escolhe o que divide as linhas de forma mais CONSISTENTE (o mesmo numero
+    de colunas em quase todas). Antes usava o csv.Sniffer, que errava em
+    arquivos com ";" e muitas virgulas dentro do texto ("Amazonia, Cerrado,
+    Caatinga") -- comum em CSV exportado do Excel em portugues.
+    Devolve None se nenhum separador formar colunas (texto corrido).
+    """
+    linhas = [l for l in texto.splitlines()[:50] if l.strip() and not l.startswith("#")]
+    melhor, melhor_nota = None, 0.0
+    for sep in ("\t", ";", "|", ","):  #empate: vence o que vem primeiro
+        contagens = [len(l) for l in csv.reader(linhas, delimiter=sep)]
+        if not contagens:
+            continue
+        moda = max(set(contagens), key=contagens.count)
+        nota = contagens.count(moda) / len(contagens)
+        if moda >= 2 and nota > melhor_nota:
+            melhor, melhor_nota = sep, nota
+    return melhor if melhor_nota >= 0.6 else None
+
+
 def _ler_texto(dados: bytes):
-    """CSV / TSV / TXT. Descobre o separador sozinho (tab, ; ou ,)."""
+    """CSV / TSV / TXT. Descobre o separador sozinho (tab, ;, | ou ,)."""
     texto = _decodificar_texto(dados)
-    amostra = "\n".join(l for l in texto.splitlines()[:20] if not l.startswith("#"))
-    try:
-        dialeto = csv.Sniffer().sniff(amostra, delimiters="\t;,|")
-        linhas = list(csv.reader(io.StringIO(texto), dialeto))
-        if any(len(l) >= 2 for l in linhas):
-            return _pares_de_tabela(linhas)
-    except csv.Error:
-        pass
+    separador = _detectar_separador(texto)
+    if separador:
+        return _pares_de_tabela(list(csv.reader(io.StringIO(texto), delimiter=separador)))
     #sem colunas: texto corrido -> regra japones/portugues linha a linha
     return parear_linhas(texto.splitlines())
 
