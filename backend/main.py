@@ -24,8 +24,6 @@ from datetime import datetime, timedelta, timezone
 from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-import os
-
 import auth
 from database import create_tables, get_connection
 from importador import ErroImportacao, gerar_previa, gerar_previa_texto
@@ -37,12 +35,6 @@ app = FastAPI()
 
 #cria as tabelas automaticamente no banco
 create_tables()
-
-#contas fixas de demonstracao (professor + alunos N5..N1): so quando pedido,
-#ex.: rodando no PC pelo rodar_local.bat. O Render nao liga isso.
-if os.environ.get("MOJIKI_CONTAS_DEMO") == "1":
-    from contas_demo import criar_contas_demo
-    criar_contas_demo()
 
 #CORS: deixa o app (que roda em outra porta/origem, ex.: Flutter web) chamar a API.
 #allow_credentials fica False: o app nao usa cookies, e o navegador recusa

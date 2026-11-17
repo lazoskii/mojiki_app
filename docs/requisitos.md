@@ -65,25 +65,6 @@ O usuário deve conseguir tirar uma foto (ou escolher da galeria) de uma lista d
 
 O usuário deve criar uma conta com nome de usuário, senha e e-mail, e depois entrar com usuário e senha. A senha deve ter no mínimo 8 caracteres, com pelo menos um número e uma letra maiúscula, e a regra vale tanto no app quanto no backend. O e-mail serve para recuperar a senha: o sistema envia um código de 6 dígitos e, com ele, o usuário define uma senha nova. Cada usuário só vê os próprios decks, cards e sessões de estudo. Detalhes em [mudancas_2026-11-13.md](mudancas_2026-11-13.md).
 
-## Backlog (para o futuro)
-
-### RF14 — Contas de professor e de aluno, com permissões diferentes
-
-**Status:** planejado, ainda não implementado.
-
-**Objetivo:** o professor usa o Mojiki para publicar flashcards para os alunos estudarem.
-
-- **Tipos de conta:** existem dois tipos, professor e aluno. Cada tipo tem permissões diferentes.
-- **Professor:** pode enviar e publicar decks e arquivos para os alunos pelo próprio app. Por exemplo, pode mandar um deck para todos os alunos de um nível (N5 a N1) ou de uma turma.
-- **Aluno:** recebe os decks publicados pelo professor e estuda. Continua podendo criar e importar os próprios decks.
-- **Controle das contas:** é preciso definir quem pode criar uma conta de professor e como o aluno é ligado ao professor ou à turma. Também é preciso decidir se o professor pode ver o progresso dos alunos.
-
-**O que já existe (17/11):**
-- a tabela `usuarios` tem as colunas `tipo` (`aluno`/`professor`) e `nivel` (N5–N1);
-- as contas de demonstração já usam essas colunas (ver [mudancas_2026-11-17.md](mudancas_2026-11-17.md)).
-
-Nenhuma rota usa essas colunas ainda. Por enquanto, o professor tem as mesmas permissões de um aluno.
-
 ---
 
 Próximo passo: revisar esta lista com o grupo/professor.

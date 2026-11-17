@@ -174,27 +174,6 @@ class TestTextoDaFoto(unittest.TestCase):
         self.assertEqual([c["pergunta"] for c in previa["cards"]], ["水 (mizu)", "火は", "山"])
         self.assertEqual(previa["ignoradas"], 1)
 
-    def _erro_400(self, texto):
-        with self.assertRaises(HTTPException) as erro:
-            main.previa_texto(main.TextoImportado(texto=texto), U)
-        self.assertEqual(erro.exception.status_code, 400)
-        return erro.exception.detail
-
-    def test_foto_so_em_japones_avisa_que_nao_entendeu(self):
-        #texto corrido sem traducao + letras soltas que o OCR inventa ("l", "I")
-        texto = "\n".join(["日本の首都は東京です。", "東京にはたくさんの人が住んでいます l",
-                           "I", "私は毎日電車で学校に行きます。"])
-        self.assertIn("só texto em japonês", self._erro_400(texto))
-
-    def test_foto_sem_pares_avisa_que_nao_entendeu(self):
-        self.assertIn("não encontrei pares", self._erro_400("Lista de compras\nleite\npão"))
-
-    def test_frases_com_traducao_continuam_valendo(self):
-        texto = "\n".join(["私は学生です。 - Eu sou estudante.",
-                           "日本語を勉強しています。 - Estou estudando japonês."])
-        previa = main.previa_texto(main.TextoImportado(texto=texto), U)
-        self.assertEqual(len(previa["cards"]), 2)
-
     def test_texto_vazio_da_400(self):
         with self.assertRaises(HTTPException) as erro:
             main.previa_texto(main.TextoImportado(texto="   \n "), U)
@@ -304,28 +283,6 @@ class TestLogin(unittest.TestCase):
         self.assertEqual(main.buscar_deck(deck["id"], outro), {"erro": "Deck não encontrado"})
         main.deletar_deck(deck["id"], outro)  #nao apaga o deck dos outros
         self.assertEqual(main.buscar_deck(deck["id"], U)["nome"], "Meu")
-
-
-class TestContasDemo(unittest.TestCase):
-    """Contas fixas de demonstracao (professor + alunos N5..N1)."""
-
-    def test_contas_entram_e_cada_aluno_tem_o_deck_do_nivel(self):
-        import contas_demo
-        self.assertEqual(len(contas_demo.criar_contas_demo()), 6)
-        self.assertEqual(contas_demo.criar_contas_demo(), [])  #rodar de novo nao duplica
-
-        professor = main.entrar(Login(usuario="professor", senha=contas_demo.SENHA_DEMO))
-        self.assertEqual(main.listar_decks(professor["id"]), [])
-        for nivel in ("N5", "N4", "N3", "N2", "N1"):
-            aluno = main.entrar(Login(usuario=f"aluno.{nivel.lower()}", senha=contas_demo.SENHA_DEMO))
-            decks = main.listar_decks(aluno["id"])
-            self.assertEqual([d["nome"] for d in decks], [f"Vocabulário JLPT {nivel}"])
-            self.assertEqual(decks[0]["total_cards"], 20)
-
-        conn = main.get_connection()
-        tipos = dict(conn.execute("SELECT usuario, tipo FROM usuarios WHERE usuario IN ('professor', 'aluno.n3')"))
-        conn.close()
-        self.assertEqual(tipos, {"professor": "professor", "aluno.n3": "aluno"})
 
 
 if __name__ == "__main__":

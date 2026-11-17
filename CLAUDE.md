@@ -12,12 +12,8 @@ Mojiki é um app de flashcards (foco em japonês) feito para um projeto de facul
   - acrescente sempre uma linha no "Diário de mudanças";
   - escreva curto, sem relatório de teste nem "como testei".
 - As dependências do backend vão no `backend/venv` (Python 3.14), nunca no Python global. Ao instalar um pacote, adicione-o também ao `backend/requirements.txt`.
-- `decks_para_importar/` são decks prontos em CSV (`Pergunta;Resposta`, UTF-8 com BOM). Eles ficam **fora** do banco de propósito: o banco começa vazio. Os CSVs são gerados por `decks_para_importar/_gerar_decks.py`.
-- A única carga inicial são as **contas de demonstração** de `backend/contas_demo.py`: `professor` e `aluno.n5` a `aluno.n1`, todas com a senha `Mojiki2026`, cada aluno com o deck "Vocabulário JLPT Nx".
-  - Só são criadas com `MOJIKI_CONTAS_DEMO=1` ou rodando o script direto.
-  - O Render não liga essa variável.
-- `backend/flashcards.db` é o banco do PC (com as contas) e fica **fora do git**. `rodar_local.bat`, na raiz, sobe o backend e o app no Chrome; ele também fica fora do git.
-- Permissões de professor e aluno (`usuarios.tipo`/`nivel`) estão planejadas como RF14 em `docs/requisitos.md`. Hoje as colunas existem, mas nenhuma rota as usa.
+- `decks_para_importar/` são decks prontos em CSV (`Pergunta;Resposta`, UTF-8 com BOM). Eles ficam **fora** do banco de propósito: o banco começa vazio e não existe seed. Os CSVs são gerados por `decks_para_importar/_gerar_decks.py`.
+- `backend/flashcards.db` é o banco local do PC e fica **fora do git** (o backend cria um banco vazio numa cópia nova).
 - A versão antiga do app fica na branch `versao-antiga`, com worktree em `../mojiki_app_antigo`. Ela serve só de referência.
 
 ## Comandos

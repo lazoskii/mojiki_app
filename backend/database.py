@@ -85,15 +85,6 @@ def create_tables():
     )
     """)
 
-    #17/11: tipo de conta ("aluno" ou "professor") e nivel JLPT do aluno (N5..N1).
-    #Por enquanto so identificam a conta; as permissoes de professor (publicar
-    #decks para os alunos) ficam para o futuro -- ver docs/requisitos.md (RF14).
-    colunas = [c["name"] for c in cursor.execute("PRAGMA table_info(usuarios)")]
-    if "tipo" not in colunas:
-        cursor.execute("ALTER TABLE usuarios ADD COLUMN tipo TEXT DEFAULT 'aluno'")
-    if "nivel" not in colunas:
-        cursor.execute("ALTER TABLE usuarios ADD COLUMN nivel TEXT")
-
     #tokens de login: um por aparelho em que o usuario entrou
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS tokens (
