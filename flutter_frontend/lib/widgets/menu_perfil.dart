@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_service.dart';
+import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import 'feedback_dialog.dart';
 
@@ -89,12 +90,16 @@ Future<void> mostrarMenuPerfil(BuildContext context, String nome) {
               leading: const Icon(Icons.logout),
               title: const Text('Sair'),
               onTap: () async {
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.remove('isAuthenticated');
-                await prefs.remove('userName');
+                // avisa o servidor pra apagar o token; sem internet, sai mesmo assim
+                try {
+                  await ApiService.sair();
+                } on ApiException {
+                  // ignora: o token some do aparelho logo abaixo
+                }
+                await AuthService.limpar();
                 if (!sheetContext.mounted) return;
                 Navigator.of(sheetContext).pop();
-                if (context.mounted) context.go('/welcome');
+                if (context.mounted) context.go('/login');
               },
             ),
           ],

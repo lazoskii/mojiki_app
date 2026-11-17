@@ -12,7 +12,12 @@ Mojiki é um app de flashcards (foco em japonês) feito para um projeto de facul
   - acrescente sempre uma linha no "Diário de mudanças";
   - escreva curto, sem relatório de teste nem "como testei".
 - As dependências do backend vão no `backend/venv` (Python 3.14), nunca no Python global. Ao instalar um pacote, adicione-o também ao `backend/requirements.txt`.
-- `decks_para_importar/` são decks prontos em CSV (`Pergunta;Resposta`, UTF-8 com BOM). Eles ficam **fora** do banco de propósito: o banco começa vazio e não existe seed. Os CSVs são gerados por `decks_para_importar/_gerar_decks.py`.
+- `decks_para_importar/` são decks prontos em CSV (`Pergunta;Resposta`, UTF-8 com BOM). Eles ficam **fora** do banco de propósito: o banco começa vazio. Os CSVs são gerados por `decks_para_importar/_gerar_decks.py`.
+- A única carga inicial são as **contas de demonstração** de `backend/contas_demo.py`: `professor` e `aluno.n5` a `aluno.n1`, todas com a senha `Mojiki2026`, cada aluno com o deck "Vocabulário JLPT Nx".
+  - Só são criadas com `MOJIKI_CONTAS_DEMO=1` ou rodando o script direto.
+  - O Render não liga essa variável.
+- `backend/flashcards.db` é o banco do PC (com as contas) e fica **fora do git**. `rodar_local.bat`, na raiz, sobe o backend e o app no Chrome; ele também fica fora do git.
+- Permissões de professor e aluno (`usuarios.tipo`/`nivel`) estão planejadas como RF14 em `docs/requisitos.md`. Hoje as colunas existem, mas nenhuma rota as usa.
 - A versão antiga do app fica na branch `versao-antiga`, com worktree em `../mojiki_app_antigo`. Ela serve só de referência.
 
 ## Comandos
@@ -23,7 +28,7 @@ venv\Scripts\uvicorn main:app --reload             # API em http://localhost:800
 venv\Scripts\python -m unittest -v                 # todos os testes
 venv\Scripts\python -m unittest test_backend.TestFormatos.test_excel   # um teste
 ```
-Os testes chamam as funções de rota direto (`main.importar_deck(...)`), sem cliente HTTP. Eles usam um banco temporário via variável `MOJIKI_DB`, definida antes do `import main`.
+Os testes chamam as funções de rota direto (`main.importar_deck(dados, U)`), sem cliente HTTP, passando o id do usuário de teste `U` no lugar do `Depends(usuario_logado)`. Eles usam um banco temporário via variável `MOJIKI_DB`, definida antes do `import main`.
 
 Frontend (rodar dentro de `flutter_frontend/`, Flutter 3.41.9):
 ```
@@ -41,7 +46,9 @@ No Git Bash, um build com `--base-href "/mojiki_app/"` precisa de `MSYS_NO_PATHC
 - `main.py`: todas as rotas. Validação de entrada falha com HTTP 400 e `{"detail"}`, pelo helper `obrigatorio()`. Um id inexistente responde **200 com `{"erro": "..."}`**, e o frontend depende dessa convenção.
 - `database.py`: cria as tabelas e faz migrações simples com `ALTER TABLE` dentro de `create_tables`. O caminho do banco vem de `MOJIKI_DB` e, por padrão, é `backend/flashcards.db`.
 - `models.py`: modelos Pydantic.
-- `user_id` é fixo em 1, porque ainda não existe autenticação.
+- Login (`auth.py` + rotas `/auth/*`): senha com hash PBKDF2, token em `tokens`, recuperação por código de 6 dígitos enviado por SMTP (variáveis `SMTP_*`; sem elas, o código vai para o log).
+  - As rotas de dados recebem `usuario_id: int = Depends(usuario_logado)`, que lê `Authorization: Bearer <token>` e responde 401 sem token válido.
+  - Cada usuário só vê os próprios decks; deck de outro usuário responde como inexistente. O `user_id` do corpo é ignorado.
 - `importador.py`: transforma arquivos em uma prévia `{nome_sugerido, cards, ignoradas, origem}`.
   - Formatos: Anki `.apkg` (zip + SQLite, `anki21b` comprimido com zstd), CSV/TXT, Excel (openpyxl), PDF (pypdf) e imagem (Tesseract no servidor).
   - O CSV usa `_detectar_separador`, e não o `csv.Sniffer`.
@@ -67,6 +74,7 @@ No Git Bash, um build com `--base-href "/mojiki_app/"` precisa de `MSYS_NO_PATHC
   - mobile: `ocr_mobile.dart` usa o ML Kit;
   - se o aparelho falhar, `widgets/importar.dart` manda a imagem para o backend.
 - `theme/app_theme.dart` define a paleta "Washi" (`AppColors`), `cardDecoration()` e outros estilos. Os formulários usam `widgets/app_campo.dart`.
+- Login: `screens/login_screen.dart` (Entrar / Criar conta) e `screens/recuperar_senha_screen.dart`. `services/auth_service.dart` guarda o token; o `redirect` do go_router manda para `/login` sem token, e um 401 da API chama `AuthService.aoExpirarSessao`. As regras da senha ficam em `utils/validacao_login.dart`, iguais às de `backend/auth.py`.
 - `services/progress_service.dart` guarda o progresso local (SharedPreferences): sequência de dias e último deck.
 
 ## Deploy

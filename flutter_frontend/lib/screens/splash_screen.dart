@@ -1,8 +1,9 @@
 // Splash: primeira tela, com a marca. Depois de 2s decide pra onde ir:
-// Home (já entrou antes), Onboarding (primeira vez) ou Boas-vindas.
+// Home (já entrou antes), Onboarding (primeira vez) ou Login.
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 
 // StatefulWidget = componente com estado (equivale a useState no React)
@@ -26,17 +27,18 @@ class _SplashScreenState extends State<SplashScreen> {
 
     // shared_preferences = localStorage do Flutter
     final prefs = await SharedPreferences.getInstance();
-    final isAuthenticated = prefs.getBool('isAuthenticated') ?? false;
     final hasSeenOnboarding = prefs.getBool('hasSeenOnboarding') ?? false;
 
     if (!mounted) return; // garante que a tela ainda está na pilha
 
-    if (isAuthenticated) {
+    // logado = tem token salvo (AuthService.carregar rodou no main.dart).
+    // Se o token tiver vencido, a 1ª chamada da Home recebe 401 e volta pro login.
+    if (AuthService.logado) {
       context.go('/home');
     } else if (!hasSeenOnboarding) {
       context.go('/onboarding');
     } else {
-      context.go('/welcome');
+      context.go('/login');
     }
   }
 

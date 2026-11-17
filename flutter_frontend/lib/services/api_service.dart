@@ -12,6 +12,7 @@ import 'package:http/http.dart' as http;
 import '../models/deck.dart';
 import '../models/flashcard.dart';
 import '../models/importacao.dart';
+import 'auth_service.dart';
 
 // Endereço do backend definido no build, pra versão publicada (GitHub
 // Pages) apontar pro backend online:
@@ -43,12 +44,6 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
-// PENDÊNCIA (backlog, Bloco 7): o app ainda não tem login, então todo deck e
-// toda sessão de estudo são gravados com o mesmo usuário. Quando existir
-// autenticação real, trocar esta constante pelo id do usuário logado.
-// Ver a seção "Backlog" do README.
-const usuarioFixoId = 1;
-
 const _erroConexao =
     'Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.';
 
@@ -69,6 +64,17 @@ class ApiService {
   // de requisições de rede reais (que não funcionam dentro do ambiente de
   // tempo "fake" do testWidgets).
   static http.Client client = http.Client();
+
+  // Cabeçalho de login: o token do usuário vai em toda requisição e o
+  // backend descobre por ele de quem são os decks (antes era user_id = 1 fixo).
+  static Map<String, String> get _auth => {
+        if (AuthService.token != null)
+          'Authorization': 'Bearer ${AuthService.token}',
+      };
+
+  // _auth + "o corpo é JSON" (usado nos POST/PUT)
+  static Map<String, String> get _json =>
+      {..._auth, 'Content-Type': 'application/json'};
 
   // Executa a chamada HTTP tratando falhas de rede/timeout; quem chama
   // ainda decide o que fazer com a Response (checar status, decodificar).
@@ -94,6 +100,10 @@ class ApiService {
   // Decodifica o corpo da resposta, verificando tanto o status HTTP quanto
   // o formato {"erro": "..."} que o backend usa para erros de negócio.
   static dynamic _decodificar(http.Response res) {
+    // 401 = token vencido/inválido: esquece o login e volta pra tela de entrar
+    if (res.statusCode == 401 && AuthService.token != null) {
+      AuthService.aoExpirarSessao?.call();
+    }
     if (res.statusCode >= 400) {
       // Erros de validação do FastAPI (HTTPException) vêm como
       // {"detail": "..."} — mostra essa mensagem quando ela existe.
@@ -130,21 +140,21 @@ class ApiService {
   // ========================
 
   static Future<List<Deck>> listarDecks() async {
-    final res = await _enviar(() => client.get(Uri.parse('$_baseUrl/decks')));
+    final res = await _enviar(() => client.get(Uri.parse('$_baseUrl/decks'), headers: _auth));
     final List data = _decodificar(res);
     return data.map((d) => Deck.fromJson(d)).toList();
   }
 
   static Future<Deck> buscarDeck(int id) async {
-    final res = await _enviar(() => client.get(Uri.parse('$_baseUrl/decks/$id')));
+    final res = await _enviar(() => client.get(Uri.parse('$_baseUrl/decks/$id'), headers: _auth));
     return Deck.fromJson(_decodificar(res));
   }
 
   static Future<Deck> criarDeck(String nome) async {
     final res = await _enviar(() => client.post(
           Uri.parse('$_baseUrl/decks'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'nome': nome, 'user_id': usuarioFixoId}),
+          headers: _json,
+          body: jsonEncode({'nome': nome}),
         ));
     return Deck.fromJson(_decodificar(res));
   }
@@ -153,14 +163,14 @@ class ApiService {
   static Future<Deck> renomearDeck(int id, String nome) async {
     final res = await _enviar(() => client.put(
           Uri.parse('$_baseUrl/decks/$id'),
-          headers: {'Content-Type': 'application/json'},
+          headers: _json,
           body: jsonEncode({'nome': nome}),
         ));
     return Deck.fromJson(_decodificar(res));
   }
 
   static Future<void> deletarDeck(int id) async {
-    final res = await _enviar(() => client.delete(Uri.parse('$_baseUrl/decks/$id')));
+    final res = await _enviar(() => client.delete(Uri.parse('$_baseUrl/decks/$id'), headers: _auth));
     _decodificar(res);
   }
 
@@ -175,7 +185,7 @@ class ApiService {
   }) async {
     final res = await _enviar(() => client.post(
           Uri.parse('$_baseUrl/flashcards'),
-          headers: {'Content-Type': 'application/json'},
+          headers: _json,
           body: jsonEncode({
             'pergunta': pergunta,
             'resposta': resposta,
@@ -194,7 +204,7 @@ class ApiService {
   }) async {
     final res = await _enviar(() => client.put(
           Uri.parse('$_baseUrl/flashcards/$id'),
-          headers: {'Content-Type': 'application/json'},
+          headers: _json,
           body: jsonEncode({
             'pergunta': pergunta,
             'resposta': resposta,
@@ -205,7 +215,7 @@ class ApiService {
   }
 
   static Future<void> deletarFlashcard(int id) async {
-    final res = await _enviar(() => client.delete(Uri.parse('$_baseUrl/flashcards/$id')));
+    final res = await _enviar(() => client.delete(Uri.parse('$_baseUrl/flashcards/$id'), headers: _auth));
     _decodificar(res);
   }
 
@@ -223,6 +233,7 @@ class ApiService {
       () async {
         final req = http.MultipartRequest(
             'POST', Uri.parse('$_baseUrl/importar/previa'))
+          ..headers.addAll(_auth)
           ..files.add(http.MultipartFile.fromBytes('arquivo', bytes,
               filename: nomeArquivo));
         return http.Response.fromStream(await client.send(req));
@@ -238,7 +249,7 @@ class ApiService {
     final res = await _enviar(
       () => client.post(
         Uri.parse('$_baseUrl/importar/texto'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _json,
         body: jsonEncode({'texto': texto}),
       ),
       limite: const Duration(seconds: 30),
@@ -254,10 +265,9 @@ class ApiService {
     final res = await _enviar(
       () => client.post(
         Uri.parse('$_baseUrl/decks/importar'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _json,
         body: jsonEncode({
           'nome': nome,
-          'user_id': usuarioFixoId,
           'cards': cards.map((c) => c.toJson()).toList(),
         }),
       ),
@@ -275,7 +285,7 @@ class ApiService {
     final res = await _enviar(
       () => client.post(
         Uri.parse('$_baseUrl/decks/$deckId/flashcards/lote'),
-        headers: {'Content-Type': 'application/json'},
+        headers: _json,
         body: jsonEncode({'cards': cards.map((c) => c.toJson()).toList()}),
       ),
       limite: const Duration(seconds: 30),
@@ -288,15 +298,15 @@ class ApiService {
   // STUDY SESSIONS (autoavaliação)
   // ========================
 
+  // o usuário da sessão vem do token, não precisa mandar
   static Future<Map<String, dynamic>> iniciarSessao({
-    required int userId,
     required int deckId,
     String? modo, // rapida/diaria/intensiva, ou null quando aberto da Home
   }) async {
     final res = await _enviar(() => client.post(
           Uri.parse('$_baseUrl/study-sessions'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'user_id': userId, 'deck_id': deckId, 'modo': modo}),
+          headers: _json,
+          body: jsonEncode({'deck_id': deckId, 'modo': modo}),
         ));
     return _decodificar(res);
   }
@@ -307,7 +317,7 @@ class ApiService {
   }) async {
     final res = await _enviar(() => client.post(
           Uri.parse('$_baseUrl/study-sessions/$sessaoId/responder'),
-          headers: {'Content-Type': 'application/json'},
+          headers: _json,
           body: jsonEncode({'acerto': acerto}),
         ));
     return _decodificar(res);
@@ -315,7 +325,8 @@ class ApiService {
 
   static Future<void> finalizarSessao(int sessaoId) async {
     final res = await _enviar(
-        () => client.put(Uri.parse('$_baseUrl/study-sessions/$sessaoId/finalizar')));
+        () => client.put(Uri.parse('$_baseUrl/study-sessions/$sessaoId/finalizar'),
+            headers: _auth));
     _decodificar(res);
   }
 
@@ -326,9 +337,71 @@ class ApiService {
   static Future<void> enviarFeedback(String mensagem) async {
     final res = await _enviar(() => client.post(
           Uri.parse('$_baseUrl/feedback'),
-          headers: {'Content-Type': 'application/json'},
+          headers: _json,
           body: jsonEncode({'mensagem': mensagem}),
         ));
     _decodificar(res);
+  }
+
+  // ========================
+  // LOGIN
+  // ========================
+  // As 3 primeiras devolvem {token, id, usuario, email}; quem chama passa
+  // isso pro AuthService.salvar.
+
+  static Future<Map<String, dynamic>> cadastrar({
+    required String usuario,
+    required String email,
+    required String senha,
+  }) async {
+    final res = await _enviar(() => client.post(
+          Uri.parse('$_baseUrl/auth/cadastro'),
+          headers: _json,
+          body: jsonEncode({'usuario': usuario, 'email': email, 'senha': senha}),
+        ));
+    return _decodificar(res);
+  }
+
+  static Future<Map<String, dynamic>> entrar({
+    required String usuario,
+    required String senha,
+  }) async {
+    final res = await _enviar(() => client.post(
+          Uri.parse('$_baseUrl/auth/login'),
+          headers: _json,
+          body: jsonEncode({'usuario': usuario, 'senha': senha}),
+        ));
+    return _decodificar(res);
+  }
+
+  // 2º passo da recuperação: código do e-mail + senha nova (já entra na conta)
+  static Future<Map<String, dynamic>> redefinirSenha({
+    required String email,
+    required String codigo,
+    required String novaSenha,
+  }) async {
+    final res = await _enviar(() => client.post(
+          Uri.parse('$_baseUrl/auth/redefinir'),
+          headers: _json,
+          body: jsonEncode(
+              {'email': email, 'codigo': codigo, 'nova_senha': novaSenha}),
+        ));
+    return _decodificar(res);
+  }
+
+  // 1º passo da recuperação: o backend manda um código de 6 dígitos pro e-mail
+  static Future<String> pedirRecuperacao(String email) async {
+    final res = await _enviar(() => client.post(
+          Uri.parse('$_baseUrl/auth/recuperar'),
+          headers: _json,
+          body: jsonEncode({'email': email}),
+        ));
+    return _decodificar(res)['msg'] as String;
+  }
+
+  // Sair: apaga o token no servidor (se falhar, o app sai mesmo assim)
+  static Future<void> sair() async {
+    await _enviar(
+        () => client.post(Uri.parse('$_baseUrl/auth/sair'), headers: _auth));
   }
 }

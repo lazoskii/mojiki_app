@@ -221,3 +221,8 @@ __marimo__/
 *.db-journal
 *.db-wal
 *.db-shm
+
+# Banco do PC (com as contas de demonstracao). Nao vai para o GitHub:
+# o Render usa um banco proprio (MOJIKI_DB=/tmp/...) e o create_tables
+# cria um banco vazio em qualquer copia nova do projeto.
+flashcards.db

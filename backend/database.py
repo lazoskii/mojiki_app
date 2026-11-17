@@ -70,6 +70,39 @@ def create_tables():
     )
     """)
 
+    #login (13/11): usuario e e-mail sao unicos, sem diferenciar maiuscula de minuscula
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS usuarios (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        usuario TEXT UNIQUE COLLATE NOCASE,
+        email TEXT UNIQUE COLLATE NOCASE,
+        senha_hash TEXT,
+        salt TEXT,
+        criado_em TEXT,
+        codigo_hash TEXT,           -- codigo de recuperacao (so o hash)
+        codigo_expira_em TEXT,
+        codigo_tentativas INTEGER DEFAULT 0
+    )
+    """)
+
+    #17/11: tipo de conta ("aluno" ou "professor") e nivel JLPT do aluno (N5..N1).
+    #Por enquanto so identificam a conta; as permissoes de professor (publicar
+    #decks para os alunos) ficam para o futuro -- ver docs/requisitos.md (RF14).
+    colunas = [c["name"] for c in cursor.execute("PRAGMA table_info(usuarios)")]
+    if "tipo" not in colunas:
+        cursor.execute("ALTER TABLE usuarios ADD COLUMN tipo TEXT DEFAULT 'aluno'")
+    if "nivel" not in colunas:
+        cursor.execute("ALTER TABLE usuarios ADD COLUMN nivel TEXT")
+
+    #tokens de login: um por aparelho em que o usuario entrou
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS tokens (
+        token TEXT PRIMARY KEY,
+        user_id INTEGER,
+        expira_em TEXT
+    )
+    """)
+
     conn.commit()
     conn.close()
 

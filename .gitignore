@@ -26,3 +26,6 @@ BUGS.md
 
 # Notas pessoais de alteracoes (nao sobem pro github)
 NOTAS_*.md
+
+# So do PC: script para rodar tudo localmente (banco fixo + contas de demonstracao)
+rodar_local.bat

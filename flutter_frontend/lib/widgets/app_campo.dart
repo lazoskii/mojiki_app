@@ -20,6 +20,11 @@ class AppCampo extends StatelessWidget {
   final int maxLines;
   final int? maxLength;
   final TextInputAction? textInputAction;
+  // login: esconde o texto (senha), teclado de e-mail/número, botão no fim
+  final bool obscureText;
+  final TextInputType? keyboardType;
+  final Widget? suffixIcon;
+  final Iterable<String>? autofillHints; // deixa o navegador/celular salvar a senha
 
   const AppCampo({
     super.key,
@@ -35,6 +40,10 @@ class AppCampo extends StatelessWidget {
     this.maxLines = 1,
     this.maxLength,
     this.textInputAction,
+    this.obscureText = false,
+    this.keyboardType,
+    this.suffixIcon,
+    this.autofillHints,
   });
 
   @override
@@ -60,6 +69,11 @@ class AppCampo extends StatelessWidget {
               maxLines: maxLines,
               maxLength: maxLength,
               textInputAction: textInputAction,
+              obscureText: obscureText,
+              keyboardType: keyboardType,
+              autofillHints: autofillHints,
+              autocorrect: !obscureText,
+              enableSuggestions: !obscureText,
               style: const TextStyle(fontSize: 16, color: AppColors.texto),
               onChanged: (texto) {
                 // ao digitar, some o erro (não fica vermelho enquanto corrige)
@@ -69,6 +83,7 @@ class AppCampo extends StatelessWidget {
               onSubmitted: onSubmitted,
               decoration: InputDecoration(
                 hintText: dica,
+                suffixIcon: suffixIcon,
                 fillColor:
                     erro != null ? const Color(0xFFFFFBFA) : AppColors.superficie,
                 enabledBorder: erro == null

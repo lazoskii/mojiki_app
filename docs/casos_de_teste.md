@@ -109,6 +109,14 @@ Semana 4 do cronograma (ver [README.md](../README.md), Bloco 3). Um caso de test
 - **Passos:** 1) Dentro de um deck, tocar em "Da foto" → "Tirar foto" (ou "Escolher da galeria"). 2) Fotografar uma lista "水 - água / 火 - fogo". 3) Revisar e importar.
 - **Resultado esperado:** os pares aparecem na revisão e entram no deck aberto.
 - **Status:** **Parcial** — o motor do navegador (Tesseract.js 5.1.1, `por+jpn`) foi testado numa imagem com "Vocabulário - Lição 1 / 水 (mizu) - água / 火 - fogo / 山 - montanha / ありがとう - obrigado": os 4 pares saíram certos, com acento, e o título foi ignorado. A rota `/importar/texto` e a revisão estão cobertas por testes automatizados. **Falta:** foto real tirada no celular (ML Kit) e o fluxo clicando no navegador.
+- **Ajuste (17/11):** uma foto só com texto em japonês, sem a tradução, gerava cards sem sentido. O pareamento juntava o japonês com letras soltas que o OCR "via" na imagem. Agora o app recusa essa foto e avisa "Não entendi a foto: ela parece ter só texto em japonês, sem a tradução", porque o Mojiki ainda não traduz. Uma foto sem nenhum par também é recusada com aviso, em vez de abrir a revisão vazia. Coberto por testes automatizados em `TestTextoDaFoto`.
+
+## CT13 — Login, cadastro e recuperação de senha (RF13)
+
+- **Pré-condição:** backend rodando (sem SMTP configurado, o código de recuperação aparece no terminal do uvicorn).
+- **Passos:** 1) Em "Criar conta", tentar a senha `senhafraca` e depois `Senha123`. 2) Criar um deck. 3) Sair e criar uma segunda conta. 4) Sair, tocar em "Esqueci minha senha", pedir o código com o e-mail da 1ª conta e redefinir a senha. 5) Abrir `#/home` sem estar logado.
+- **Resultado esperado:** a senha fraca é recusada com a regra que falta; a 2ª conta não vê o deck da 1ª; depois de redefinir, o app entra direto na 1ª conta; sem login, `#/home` abre o login.
+- **Status:** **Passou** nos testes automatizados (`TestLogin` e `login_test.dart`) e num teste ponta a ponta com o servidor real via `curl`. **Falta:** conferir clicando no app e o envio real por SMTP.
 
 ## Resumo dos defeitos
 
@@ -126,6 +134,35 @@ Semana 4 do cronograma (ver [README.md](../README.md), Bloco 3). Um caso de test
 | CT10 | RF10 | — (criado no Bloco 7) | Baixa | Passou (Bloco 7) |
 | CT11 | RF11 | — (criado depois do cronograma) | — | Passou (conferir PDF real no app) |
 | CT12 | RF12 | — (criado depois do cronograma) | — | Parcial — OCR testado em imagem; falta foto real no celular |
+| CT13 | RF13 | — (criado depois do cronograma) | — | Passou nos testes automatizados; falta conferir no app e o SMTP real |
+
+## Testes automatizados dos requisitos básicos (17/11)
+
+Os casos CT01 a CT08 e a autoavaliação do Bloco 1 viraram testes automatizados. Cada classe ou `group` leva o número do requisito no nome:
+
+- **Backend:** [backend/test_requisitos.py](../backend/test_requisitos.py) prova as regras do servidor.
+- **App:** [flutter_frontend/test/requisitos_test.dart](../flutter_frontend/test/requisitos_test.dart) prova o comportamento da tela, com um backend falso.
+
+| Requisito | Backend (`test_requisitos.py`) | App (Flutter) |
+|---|---|---|
+| RF01 — nome do deck | vazio/só espaços → 400 sem gravar; espaços nas pontas aparados; renomear para vazio → 400 | `edicao_e_busca_test.dart`: aviso sem chamar a API; mensagem do 400 aparece |
+| RF02 — pergunta/resposta | criar ou editar com campo vazio → 400 e o banco não muda | card sem resposta: aviso e nenhum `POST /flashcards` |
+| RF03 — erro de API | — | Home sem rede mostra "Sem conexão" e "Tentar novamente" recupera; servidor que não responde sai do spinner após 10 s; estudo e tela Estudar também mostram o erro |
+| RF04 — excluir deck | apaga cards e sessões do deck; outro deck intacto | "Excluir deck?" avisa sobre os flashcards; Cancelar não chama `DELETE`; Excluir chama |
+| RF05 — excluir flashcard | apaga só o card escolhido | "Excluir flashcard?"; Cancelar não chama `DELETE`; Excluir chama |
+| RF06 — editar flashcard | edição persiste no banco; id inexistente → `{"erro"}` | `edicao_e_busca_test.dart` |
+| RF07 — renomear deck | renomeia e mantém os cards; id inexistente → `{"erro"}` | `edicao_e_busca_test.dart` |
+| RF08 — modos de estudo | cada modo gravado na sessão; modo inválido → 400 sem criar sessão | modo lista só decks com cards e abre `/study/{id}?modo=`; Rápida corta em 10 cards e finaliza em 5:00; Diária usa todos os cards em 15:00 e não repete erro; Intensiva em 30:00 manda o card errado pro fim da fila |
+| Bloco 1 — Acertei/Errei | sessão começa zerada, conta 2 acertos e 1 erro e é finalizada; sessão finalizada não aceita resposta | `widget_test.dart` |
+
+**Os testes pegam defeitos?** Foi feito um teste de mutação: o código foi quebrado de propósito e depois restaurado.
+
+- O diálogo de confirmação passou a sempre responder "sim", e os testes de RF04 e RF05 falharam.
+- A Sessão Intensiva deixou de repetir os erros, e o teste dela falhou.
+
+Isso mostra que os testes detectam a regressão.
+
+**Ainda é manual:** a parte visual, como o layout e a animação de virar o card, e o uso real no celular.
 
 ## Priorização para correção
 

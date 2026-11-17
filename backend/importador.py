@@ -404,6 +404,7 @@ def gerar_previa(nome_arquivo: str, dados: bytes) -> dict:
     elif extensao in EXTENSOES_IMAGEM:
         texto = ocr_imagem(dados, avisos)
         pares, ignoradas = parear_linhas(texto.splitlines())
+        conferir_foto(texto, pares)
         origem = "foto"
         nome_sugerido = "Deck da foto"
     else:
@@ -422,7 +423,30 @@ def gerar_previa_texto(texto: str) -> dict:
     if len(texto) > 200_000:
         raise ErroImportacao("Texto grande demais.")
     pares, ignoradas = parear_linhas(texto.splitlines())
+    conferir_foto(texto, pares)
     return _montar_previa(pares, ignoradas, "Deck da foto", "foto", [])
+
+
+def conferir_foto(texto: str, pares) -> None:
+    """Recusa a foto que o Mojiki nao consegue transformar em cards, com uma
+    mensagem clara, em vez de abrir a revisao vazia ou com cards sem sentido.
+
+    Caso 1: texto so em japones (sem traducao). O pareamento juntava o japones
+    com letras soltas que o OCR "enxerga" na foto. O Mojiki ainda nao traduz.
+    Caso 2: nenhum par encontrado.
+    """
+    japones = len(_JAPONES.findall(texto))
+    latinas = len(_LETRA_LATINA.findall(texto))
+    #lista de vocabulario tem bastante portugues; texto so em japones quase nenhum
+    if japones >= 10 and latinas < 0.15 * japones:
+        raise ErroImportacao(
+            "Não entendi a foto: ela parece ter só texto em japonês, sem a tradução. "
+            "Por enquanto o Mojiki não traduz sozinho. Use uma lista com a palavra em "
+            "japonês e a tradução na mesma linha ou na linha de baixo.")
+    if not pares:
+        raise ErroImportacao(
+            "Não entendi a foto: não encontrei pares de japonês e tradução. "
+            "Cada linha precisa ter a palavra em japonês e a tradução (ou uma linha de cada).")
 
 
 def _montar_previa(pares, ignoradas, nome_sugerido, origem, avisos) -> dict:

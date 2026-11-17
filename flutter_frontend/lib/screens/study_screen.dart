@@ -47,6 +47,9 @@ class _StudyScreenState extends State<StudyScreen>
   int _currentIndex = 0;
   bool _isFlipped = false;
   bool _loading = true;
+  // formulário de criar card: escondido quando o deck já tem cards
+  // (abre pelo botão + do cabeçalho); num deck vazio aparece sempre
+  bool _mostrarForm = false;
   String? _error;
 
   // ---- autoavaliação (Acertei / Errei) ----
@@ -186,8 +189,7 @@ class _StudyScreenState extends State<StudyScreen>
       // frente dela) ainda precisa do id antigo
       _sessaoId = null;
       final sessao = await ApiService.iniciarSessao(
-        userId: usuarioFixoId, // pendência: ver api_service.dart
-        deckId: widget.deckId,
+        deckId: widget.deckId, // o usuário vem do token de login
         modo: widget.modo?.name,
       );
       _sessaoId = sessao['id'];
@@ -434,7 +436,9 @@ class _StudyScreenState extends State<StudyScreen>
                     children: [
                       _cabecalho(),
                       if (_deck!.cards.isNotEmpty) _barraProgresso(),
-                      _formNovoCard(),
+                      // formulário de criar card: sempre no deck vazio;
+                      // com cards, só quando o botão + do cabeçalho abre
+                      if (_deck!.cards.isEmpty || _mostrarForm) _formNovoCard(),
                       Expanded(
                         child: _deck!.cards.isEmpty
                             ? const Center(
@@ -554,6 +558,14 @@ class _StudyScreenState extends State<StudyScreen>
                   ),
                 );
               },
+            ),
+          // abre/fecha o formulário de criar card (não aparece nos modos
+          // cronometrados: lá o foco é só estudar)
+          if (_deck!.cards.isNotEmpty && widget.modo == null)
+            IconButton(
+              tooltip: _mostrarForm ? 'Fechar' : 'Adicionar cards',
+              icon: Icon(_mostrarForm ? Icons.close : Icons.add),
+              onPressed: () => setState(() => _mostrarForm = !_mostrarForm),
             ),
           if (_deck!.cards.isNotEmpty)
             IconButton(

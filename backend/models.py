@@ -13,7 +13,7 @@ class User(BaseModel):
 class Deck(BaseModel):
     id: Optional[int] = None
     nome: str
-    user_id: int
+    user_id: Optional[int] = None  #ignorado: o dono e o usuario logado (token)
 
 class Flashcard(BaseModel):
     id: Optional[int] = None  #deu erro 422 quando fui testar o fastapi pq geralmente a id o banco cria depois, entao é bom deixar ela como optional
@@ -37,7 +37,7 @@ class StudySession(BaseModel):
 
 #usado so pra iniciar a sessao (acertos/erros comecam em 0 no back)
 class IniciarSessao(BaseModel):
-    user_id: int
+    user_id: Optional[int] = None  #ignorado: vem do token
     deck_id: int
     modo: Optional[str] = None  #semana 10: rapida, diaria ou intensiva (None = estudo livre)
 
@@ -59,7 +59,7 @@ class CardImportado(BaseModel):
 #cria um deck novo com varios cards de uma vez (POST /decks/importar)
 class ImportarDeck(BaseModel):
     nome: str
-    user_id: int = 1  #pendencia: user_id fixo (ver Backlog no README)
+    user_id: Optional[int] = None  #ignorado: o dono e o usuario logado (token)
     cards: List[CardImportado]
 
 #adiciona varios cards num deck que ja existe (POST /decks/{id}/flashcards/lote)
@@ -75,6 +75,29 @@ class TextoImportado(BaseModel):
 #feedback enviado pelo usuario (opcao "Enviar feedback" no menu de perfil)
 class EnviarFeedback(BaseModel):
     mensagem: str
+
+
+# ---------- login (13/11) ----------
+
+#criar conta: usuario + senha + e-mail (o e-mail so serve pra recuperar a senha)
+class Cadastro(BaseModel):
+    usuario: str
+    email: str
+    senha: str
+
+class Login(BaseModel):
+    usuario: str
+    senha: str
+
+#1o passo da recuperacao: pede o codigo por e-mail
+class PedirRecuperacao(BaseModel):
+    email: str
+
+#2o passo: codigo recebido + senha nova
+class RedefinirSenha(BaseModel):
+    email: str
+    codigo: str
+    nova_senha: str
 
 
 
