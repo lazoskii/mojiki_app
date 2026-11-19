@@ -83,6 +83,14 @@ def usuario_logado(authorization: str | None = Header(None)) -> int:
     raise HTTPException(status_code=401, detail="Sua sessão expirou. Entre novamente.")
 
 
+#rota publica (sem login) para o Render conferir se o servidor esta no ar
+#(healthCheckPath no render.yaml). Se ela pedisse login, o Render receberia
+#401, acharia que o servidor caiu e cancelaria o deploy.
+@app.get("/saude")
+def saude():
+    return {"status": "ok"}
+
+
 # =========================
 # FLASHCARDS
 # =========================
